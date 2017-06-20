@@ -9,8 +9,8 @@ use DistributedIters;
   Control variables. These determine the test variables (defined later) and
   provide control for checking correctness.
 */
-config const n:int=10;
-var controlRange:range=0..n;
+config const n:int=1000;
+var controlRange:range=1..n;
 
 // Variations.
 var controlStridedRange=controlRange by 2;
@@ -22,17 +22,20 @@ var controlDomain:domain(1)={controlRange};
 /*
   Ranges.
 */
+
+/* Commenting out while working on distributed guided.
 var testRangeArray:[controlRange] int=0;
 
 writeln("Testing a range...");
 for i in distributed(controlRange) do
   testRangeArray[i] = testRangeArray[i]+1;
 checkCorrectness(testRangeArray,controlRange);
+*/
 
 var testGuidedDistributedRangeArray:[controlRange] int=0;
 
 writeln("Testing a range (distributed guided iterator)...");
-for i in guided(controlRange) do
+forall i in guided(controlRange) do
   testGuidedDistributedRangeArray[i] = testGuidedDistributedRangeArray[i]+1;
 checkCorrectness(testGuidedDistributedRangeArray,controlRange);
 

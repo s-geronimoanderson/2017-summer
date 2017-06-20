@@ -24,9 +24,8 @@
 module DistributedIters
 {
 
-
-writeln("This program is running on ", numLocales, " locales");
-
+writeln("This program is running on locale ", here.id, " of ", numLocales,
+        " total");
 
 // Toggle debugging output.
 config param debugDistributedIters:bool=true;
@@ -84,10 +83,10 @@ iter distributed(c,
 
   for i in localC
   {
-    write(i, " ");
+    //write(i, " ");
     yield i;
   }
-  writeln();
+  //writeln();
 
   //for i in c do yield i;
 }
@@ -191,6 +190,19 @@ inline proc populateInputTypeInfo(c, ref inputType, ref inputTypeStr)
 }
 
 // Experiment.
+private proc defaultNumTasks(nTasks:int)
+{
+  var dnTasks=nTasks;
+  if nTasks==0 then
+  {
+    if dataParTasksPerLocale==0
+    then dnTasks=here.maxTaskPar;
+    else dnTasks=dataParTasksPerLocale;
+  }
+  else if nTasks<0 then halt("'numTasks' is negative");
+  return dnTasks;
+}
+
 // An atomic test-and-set lock.
 pragma "no doc"
 record vlock
@@ -198,13 +210,43 @@ record vlock
   var l: atomic bool;
   proc lock()
   {
-    on this do while l.testAndSet() != false do chpl_task_yield();
+    on this
+    do while l.testAndSet() != false
+       do chpl_task_yield();
   }
-  proc unlock()
-  {
+  proc unlock() {
     l.write(false);
   }
 }
+
+private proc adaptSplit(ref rangeToSplit:range(?),
+                        splitFactor:int,
+                        ref itLeft:bool,
+                        ref lock:vlock,
+                        splitTail:bool=false)
+{
+  type rType=rangeToSplit.type;
+  type lenType=rangeToSplit.length.type;
+  var totLen, size : lenType;
+  const profThreshold=1;
+
+  lock.lock();
+  totLen=rangeToSplit.length;
+  if totLen > profThreshold
+  then size=max(totLen/splitFactor, profThreshold);
+  else
+  {
+    size=totLen;
+    itLeft=false;
+  }
+  const direction = if splitTail then -1 else 1;
+  const initialSubrange:rType=rangeToSplit#(direction*size);
+  rangeToSplit=rangeToSplit#(direction*(size-totLen));
+  lock.unlock();
+  return initialSubrange;
+}
+
+
 
 iter guided(c:range(?),
             numTasks:int=0)
@@ -215,20 +257,33 @@ iter guided(c:range(?),
   for i in c do yield i;
 }
 
+/* Standalone?
+iter guided(param tag:iterKind,
+            c:range(?),
+            numTasks:int=0)
+where tag == iterKind.standalone
+{
+  if debugDistributedIters
+  then writeln("Standalone guided iterator, working with range ", c);
+
+  for i in c do yield i;
+}
+*/
+
 pragma "no doc"
 iter guided(param tag:iterKind,
             c:range(?),
             numTasks:int=0)
 where tag == iterKind.leader
 {
-  // Check if the number of tasks is 0, in that case it returns a default value
-  const nTasks=min(c.length, defaultNumTasks(numTasks));
+  const iterCount=c.length;
+  if iterCount == 0 then halt("The range is empty");
+
+  // iterCount is non-zero; If numTasks is 0, use some default value.
+  const nTasks=min(iterCount, defaultNumTasks(numTasks));
 
   type cType=c.type;
   var remain:cType = densify(c,c);
-
-  // If the number of tasks is insufficient, yield in serial
-  if c.length == 0 then halt("The range is empty");
 
   if nTasks == 1 then
   {
@@ -239,26 +294,55 @@ where tag == iterKind.leader
   }
   else
   {
-    var undone=true;
+    var moreLocalWork=true;
+    var moreWork=true;
     const factor=nTasks;
-    var lock : vlock;
+    var lock:vlock;
 
-    coforall tid in 0..#nTasks with (ref remain, ref undone, ref lock) do
+    var tid=0;
+
+    for loc in Locales do
     {
-      while undone do
+      on loc do
       {
-        // There is local work in remain(tid)
-        const current:cType=adaptSplit(remain, factor, undone, lock);
-        if current.length !=0 then
+        while moreWork do
+        {
+          const current:cType=adaptSplit(remain, factor, moreWork, lock);
+          if current.length != 0 then
+          {
+            if debugDistributedIters
+            then writeln("Distributed guided iterator (leader): Locale ",
+                         here.id, ", tid ", tid, ", yielding range ",
+                         unDensify(current,c),
+                         " (", current.length, "/", iterCount, ")",
+                         " as ", current);
+            yield (current,);
+          }
+        }
+      }
+    }
+
+    /*
+    // Divide work per processor.
+    coforall tid in 0..#nTasks
+    with (ref remain, ref moreLocalWork, ref lock) do
+    {
+      while moreLocalWork do
+      {
+        const current:cType=adaptSplit(remain, factor, moreLocalWork, lock);
+        if current.length != 0 then
         {
           if debugDistributedIters
-          then writeln("Parallel guided Iterator. Working at tid ", tid,
-                       " with range ", unDensify(current,c),
-                       " yielded as ", current);
+          then writeln("Distributed guided iterator (leader): Locale ",
+                       here.id, ", tid ", tid, ", yielding range ",
+                       unDensify(current,c),
+                       " (", current.length, "/", iterCount, ")",
+                       " as ", current);
           yield (current,);
         }
       }
     }
+    */
   }
 }
 
@@ -270,11 +354,12 @@ iter guided(param tag:iterKind,
             followThis)
 where tag == iterKind.follower
 {
-  type cType=c.type;
-  const current:cType=unDensify(followThis(1),c);
+  const current:c.type=unDensify(followThis(1),c);
   if debugDistributedIters
-  then writeln("Follower received range ", followThis,
-               " ; shifting to ", current);
+  then writeln("Distributed guided iterator (follower): Locale ",
+               here.id, ", received range ", followThis,
+               " (", current.length, "/", c.length, ")",
+               "; shifting to ", current);
   for i in current do yield i;
 }
 
