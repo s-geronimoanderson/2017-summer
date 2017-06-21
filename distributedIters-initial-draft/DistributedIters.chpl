@@ -353,7 +353,7 @@ where tag == iterKind.leader
           }
         }
 
-
+        /*
         while true do
         {
           const portion:cType=adaptSplit(remain, factor, moreWork, lock);
@@ -369,6 +369,7 @@ where tag == iterKind.leader
           lock.unlock();
           if remainLength == 0 then break;
         }
+        */
       }
     }
 
