@@ -229,8 +229,11 @@ private proc adaptSplit(ref rangeToSplit:range(?),
 {
   type rType=rangeToSplit.type;
   type lenType=rangeToSplit.length.type;
-  var totLen, size : lenType;
+
   const profThreshold=1;
+
+  var initialSubrange:rType;
+  var totLen, size : lenType;
 
   lock.lock();
   totLen=rangeToSplit.length;
@@ -238,12 +241,22 @@ private proc adaptSplit(ref rangeToSplit:range(?),
   then size=max(totLen/splitFactor, profThreshold);
   else
   {
-    size=totLen;
-    itLeft=false;
+    size = totLen;
+    itLeft = false;
   }
-  const direction = if splitTail then -1 else 1;
-  const initialSubrange:rType=rangeToSplit#(direction*size);
-  rangeToSplit=rangeToSplit#(direction*(size-totLen));
+  if size == totLen
+  then
+  {
+    itLeft = false;
+    initialSubrange = rangeToSplit;
+    rangeToSplit = 1..0;
+  }
+  else
+  {
+    const direction = if splitTail then -1 else 1;
+    initialSubrange = rangeToSplit#(direction*size);
+    rangeToSplit = rangeToSplit#(direction*(size-totLen));
+  }
   lock.unlock();
 
   writeln("adaptSplit: Locale ", here.id, ", rangeToSplit is on ",
@@ -308,7 +321,7 @@ where tag == iterKind.leader
     {
       on L do
       {
-        if moreWork then
+        while moreWork do
         {
           const current:cType=remain;
           const portion:cType=adaptSplit(remain, factor, moreWork, lock);
@@ -319,7 +332,6 @@ where tag == iterKind.leader
 
           yield (portion,);
         }
-        else yield (0..#1,);
       }
     }
 
