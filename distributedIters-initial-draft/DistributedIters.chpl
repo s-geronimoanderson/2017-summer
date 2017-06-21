@@ -326,8 +326,7 @@ where tag == iterKind.leader
     const factor=numLocales;
     var lock:vlock;
 
-    const LS = LocaleSpace dmapped Block(boundingBox=LocaleSpace);
-    forall L in Locales
+    coforall L in Locales
     with (ref remain, ref moreWork, ref lock) do
     {
       on L do
