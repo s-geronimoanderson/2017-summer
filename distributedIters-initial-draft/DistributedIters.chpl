@@ -245,6 +245,11 @@ private proc adaptSplit(ref rangeToSplit:range(?),
   const initialSubrange:rType=rangeToSplit#(direction*size);
   rangeToSplit=rangeToSplit#(direction*(size-totLen));
   lock.unlock();
+
+  writeln("adaptSplit: Locale ", here.id, ", rangeToSplit is on ",
+          rangeToSplit.locale, ", initialSubrange is on ",
+          initialSubrange.locale, ".");
+
   return initialSubrange;
 }
 
@@ -305,27 +310,25 @@ where tag == iterKind.leader
       {
         writeln("Distributed guided iterator (leader): Locale ",
                 here.id, ".");
-        yield (0..#1,);
-      }
+        //yield (0..#1,);
 
-      /*
-      var tid=0;
+        var tid=0;
 
-      while moreWork do
-      {
-        const current:cType=adaptSplit(remain, factor, moreWork, lock);
-        if current.length != 0 then
+        while moreWork do
         {
-          if debugDistributedIters
-          then writeln("Distributed guided iterator (leader): Locale ",
-                       here.id, ", tid ", tid, ", yielding range ",
-                       unDensify(current,c),
-                       " (", current.length, "/", iterCount, ")",
-                       " as ", current);
-          yield (current,);
+          const current:cType=adaptSplit(remain, factor, moreWork, lock);
+          if current.length != 0 then
+          {
+            if debugDistributedIters
+            then writeln("Distributed guided iterator (leader): Locale ",
+                         here.id, ", tid ", tid, ", yielding range ",
+                         unDensify(current,c),
+                         " (", current.length, "/", iterCount, ")",
+                         " as ", current, " on ", current.locale);
+            yield (current,);
+          }
         }
       }
-      */
     }
 
     /*
