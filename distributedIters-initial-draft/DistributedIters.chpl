@@ -312,9 +312,9 @@ where tag == iterKind.leader
         const portion:cType=adaptSplit(remain, factor, moreWork, lock);
         writeln("Distributed guided iterator (leader): Locale ",
                 here.id, " has a copy of remain on ", current.locale, " and ",
-                "its portion is on ", portion.locale);
+                "its portion is ", portion, " on ", portion.locale);
 
-        yield (0..#1,);
+        yield (portion,);
       }
     }
 
