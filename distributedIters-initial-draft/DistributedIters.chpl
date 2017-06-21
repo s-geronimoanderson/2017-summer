@@ -298,12 +298,15 @@ where tag == iterKind.leader
     var lock:vlock;
 
     const LS = LocaleSpace dmapped Block(boundingBox=LocaleSpace);
-    forall L in LS
+    forall L in Locales
     with (ref remain, ref moreWork, ref lock) do
     {
-      writeln("Distributed guided iterator (leader): Locale ",
-              here.id, ".");
-      yield (0..#1,);
+      on L do
+      {
+        writeln("Distributed guided iterator (leader): Locale ",
+                here.id, ".");
+        yield (0..#1,);
+      }
 
       /*
       var tid=0;
