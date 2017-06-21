@@ -221,6 +221,16 @@ record vlock
   }
 }
 
+/*
+private proc serveWork(ref rangeToSplit:range(?),
+                       splitFactor:int,
+                       ref lock:vlock,
+                       splitTail:bool=false)
+{
+  return rangeToSplit;
+}
+*/
+
 private proc adaptSplit(ref rangeToSplit:range(?),
                         splitFactor:int,
                         ref itLeft:bool,
@@ -265,6 +275,7 @@ private proc adaptSplit(ref rangeToSplit:range(?),
 
   return initialSubrange;
 }
+
 
 
 
@@ -321,16 +332,20 @@ where tag == iterKind.leader
     {
       on L do
       {
-        while moreWork do
+        while true do
         {
-          const current:cType=remain;
           const portion:cType=adaptSplit(remain, factor, moreWork, lock);
           writeln("Distributed guided iterator (leader): Locale ",
-                  here.id, ": moreWork (", moreWork.locale, "), current (",
-                  current.locale, "), portion = ", portion, " (",
+                  here.id, ": moreWork (", moreWork.locale,
+                  "), portion = ", portion, " (",
                   portion.locale, ")");
 
           yield (portion,);
+
+          lock.lock();
+          const remainLength = remain.length;
+          lock.unlock();
+          if remainLength == 0 then break;
         }
       }
     }
