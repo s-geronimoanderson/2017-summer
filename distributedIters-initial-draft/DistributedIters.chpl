@@ -221,7 +221,7 @@ record vlock
   }
 }
 
-private inline proc adaptSplit(ref rangeToSplit:range(?),
+private proc adaptSplit(ref rangeToSplit:range(?),
                                splitFactor:int,
                                ref itLeft:bool,
                                ref lock:vlock,
@@ -308,26 +308,12 @@ where tag == iterKind.leader
     {
       on L do
       {
+        const current:cType=remain;
         writeln("Distributed guided iterator (leader): Locale ",
-                here.id, ".");
-        //yield (0..#1,);
+                here.id, " has a copy of current on ",
+                current.locale);
 
-        var tid=0;
-
-        while moreWork do
-        {
-          const current:cType=adaptSplit(remain, factor, moreWork, lock);
-          if current.length != 0 then
-          {
-            if debugDistributedIters
-            then writeln("Distributed guided iterator (leader): Locale ",
-                         here.id, ", tid ", tid, ", yielding range ",
-                         unDensify(current,c),
-                         " (", current.length, "/", iterCount, ")",
-                         " as ", current, " on ", current.locale);
-            yield (current,);
-          }
-        }
+        yield (0..#1,);
       }
     }
 
