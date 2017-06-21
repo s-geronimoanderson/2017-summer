@@ -221,11 +221,11 @@ record vlock
   }
 }
 
-private proc adaptSplit(ref rangeToSplit:range(?),
-                        splitFactor:int,
-                        ref itLeft:bool,
-                        ref lock:vlock,
-                        splitTail:bool=false)
+private inline proc adaptSplit(ref rangeToSplit:range(?),
+                               splitFactor:int,
+                               ref itLeft:bool,
+                               ref lock:vlock,
+                               splitTail:bool=false)
 {
   type rType=rangeToSplit.type;
   type lenType=rangeToSplit.length.type;
