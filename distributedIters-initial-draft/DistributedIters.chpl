@@ -293,12 +293,33 @@ where tag == iterKind.leader
   }
   else
   {
+    var moreWork=true;
+    const factor=numLocales;
+    var lock:vlock;
+
     const LS = LocaleSpace dmapped Block(boundingBox=LocaleSpace);
-    forall L in LS do
+    forall L in LS
+    with (ref remain, ref moreWork, ref lock) do
     {
       writeln("Distributed guided iterator (leader): Locale ",
               here.id, ".");
-      yield (0..#1,);
+
+      var tid=0;
+
+      while moreWork do
+      {
+        const current:cType=adaptSplit(remain, factor, moreWork, lock);
+        if current.length != 0 then
+        {
+          if debugDistributedIters
+          then writeln("Distributed guided iterator (leader): Locale ",
+                       here.id, ", tid ", tid, ", yielding range ",
+                       unDensify(current,c),
+                       " (", current.length, "/", iterCount, ")",
+                       " as ", current);
+          yield (current,);
+        }
+      }
     }
 
     /*
@@ -307,9 +328,6 @@ where tag == iterKind.leader
     const nTasks=min(iterCount, defaultNumTasks(numTasks));
 
     var moreLocalWork=true;
-    var moreWork=true;
-    const factor=nTasks;
-    var lock:vlock;
 
     var tid=0;
 
@@ -322,20 +340,6 @@ where tag == iterKind.leader
         writeln("Distributed guided iterator (leader): Locale ",
                 here.id, ".");
 
-        while moreWork do
-        {
-          const current:cType=adaptSplit(remain, factor, moreWork, lock);
-          if current.length != 0 then
-          {
-            if debugDistributedIters
-            then writeln("Distributed guided iterator (leader): Locale ",
-                         here.id, ", tid ", tid, ", yielding range ",
-                         unDensify(current,c),
-                         " (", current.length, "/", iterCount, ")",
-                         " as ", current);
-            yield (current,);
-          }
-        }
 
       }
     }
