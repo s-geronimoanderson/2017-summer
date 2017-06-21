@@ -308,14 +308,18 @@ where tag == iterKind.leader
     {
       on L do
       {
-        const current:cType=remain;
-        const portion:cType=adaptSplit(remain, factor, moreWork, lock);
-        writeln("Distributed guided iterator (leader): Locale ",
-                here.id, ": moreWork (", moreWork.locale, "), current (",
-                current.locale, "), portion = ", portion, " (",
-                portion.locale, ")");
+        if moreWork then
+        {
+          const current:cType=remain;
+          const portion:cType=adaptSplit(remain, factor, moreWork, lock);
+          writeln("Distributed guided iterator (leader): Locale ",
+                  here.id, ": moreWork (", moreWork.locale, "), current (",
+                  current.locale, "), portion = ", portion, " (",
+                  portion.locale, ")");
 
-        yield (portion,);
+          yield (portion,);
+        }
+        else yield (0..#1,);
       }
     }
 
