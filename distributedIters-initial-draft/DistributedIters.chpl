@@ -293,6 +293,13 @@ where tag == iterKind.leader
   }
   else
   {
+    const LD = Locales.localSubdomain();
+    writeln("Distributed guided iterator (leader): Locales.localSubdomain() ",
+            "is ", LD);
+
+    writeln("Distributed guided iterator (leader): Locales.domain is ",
+            Locales.domain);
+
     const LS = Locales.domain dmapped Block(boundingBox=Locales.domain);
     var LA: [LS] int;
     forall L in LA do
