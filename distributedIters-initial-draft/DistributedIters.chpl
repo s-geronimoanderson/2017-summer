@@ -222,10 +222,10 @@ record vlock
 }
 
 private proc adaptSplit(ref rangeToSplit:range(?),
-                               splitFactor:int,
-                               ref itLeft:bool,
-                               ref lock:vlock,
-                               splitTail:bool=false)
+                        splitFactor:int,
+                        ref itLeft:bool,
+                        ref lock:vlock,
+                        splitTail:bool=false)
 {
   type rType=rangeToSplit.type;
   type lenType=rangeToSplit.length.type;
@@ -311,8 +311,9 @@ where tag == iterKind.leader
         const current:cType=remain;
         const portion:cType=adaptSplit(remain, factor, moreWork, lock);
         writeln("Distributed guided iterator (leader): Locale ",
-                here.id, " has a copy of remain on ", current.locale, " and ",
-                "its portion is ", portion, " on ", portion.locale);
+                here.id, ": moreWork (", moreWork.locale, "), current (",
+                current.locale, "), portion = ", portion, " (",
+                portion.locale, ")");
 
         yield (portion,);
       }
@@ -324,21 +325,6 @@ where tag == iterKind.leader
     const nTasks=min(iterCount, defaultNumTasks(numTasks));
 
     var moreLocalWork=true;
-
-    var tid=0;
-
-    forall loc in Locales
-    with (ref remain, ref moreWork, ref lock) do
-    {
-      on loc do
-      {
-
-        writeln("Distributed guided iterator (leader): Locale ",
-                here.id, ".");
-
-
-      }
-    }
 
     */
 
