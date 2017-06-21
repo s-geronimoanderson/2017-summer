@@ -23,12 +23,14 @@
 */
 module DistributedIters
 {
-
-writeln("This program is running on locale ", here.id, " of ", numLocales,
-        " total");
+use BlockDist;
 
 // Toggle debugging output.
 config param debugDistributedIters:bool=true;
+
+if debugDistributedIters
+then writeln("DistributedIters: Running on locale ", here.id, " of ",
+             numLocales, " total");
 
 // Valid input types.
 enum inputTypeEnum
@@ -279,21 +281,32 @@ where tag == iterKind.leader
   const iterCount=c.length;
   if iterCount == 0 then halt("The range is empty");
 
-  // iterCount is non-zero; If numTasks is 0, use some default value.
-  const nTasks=min(iterCount, defaultNumTasks(numTasks));
-
   type cType=c.type;
   var remain:cType = densify(c,c);
 
-  if nTasks == 1 then
+  if iterCount == 1 || numTasks == 1 && numLocales == 1 then
   {
     if debugDistributedIters
-    then writeln("Guided iterator: serial execution because there is not ",
-                 "enough work");
+    then writeln("Distributed guided iterator: serial execution due to ",
+                 "insufficient work or compute resources");
     yield (remain,);
   }
   else
   {
+    const LS = Locales.domain dmapped Block(boundingBox=Locales.domain);
+    var LA: [LS] int;
+    forall L in LA do
+    {
+      writeln("Distributed guided iterator (leader): Locale ",
+              here.id, ".");
+      yield (0..#1,);
+    }
+
+    /*
+
+    // iterCount is non-zero; If numTasks is 0, use some default value.
+    const nTasks=min(iterCount, defaultNumTasks(numTasks));
+
     var moreLocalWork=true;
     var moreWork=true;
     const factor=nTasks;
@@ -327,6 +340,8 @@ where tag == iterKind.leader
 
       }
     }
+
+    */
 
     /*
     // Divide work per processor.
