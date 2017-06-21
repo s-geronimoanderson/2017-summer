@@ -301,11 +301,14 @@ where tag == iterKind.leader
 
     var tid=0;
 
-    forall loc in Locales
-    with (ref remain, ref moreWork, ref lock) do
+    for loc in Locales do
     {
       on loc do
       {
+
+        writeln("Distributed guided iterator (leader): Locale ",
+                here.id, ".");
+        /*
         while moreWork do
         {
           const current:cType=adaptSplit(remain, factor, moreWork, lock);
@@ -320,6 +323,7 @@ where tag == iterKind.leader
             yield (current,);
           }
         }
+        */
       }
     }
 
