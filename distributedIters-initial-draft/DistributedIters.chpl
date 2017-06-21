@@ -301,7 +301,7 @@ where tag == iterKind.leader
 
     var tid=0;
 
-    forall loc in Locales do
+    forall loc in Locales
     with (ref remain, ref moreWork, ref lock) do
     {
       on loc do
