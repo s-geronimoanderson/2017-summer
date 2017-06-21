@@ -309,7 +309,7 @@ where tag == iterKind.leader
 
         writeln("Distributed guided iterator (leader): Locale ",
                 here.id, ".");
-        /*
+
         while moreWork do
         {
           const current:cType=adaptSplit(remain, factor, moreWork, lock);
@@ -324,7 +324,7 @@ where tag == iterKind.leader
             yield (current,);
           }
         }
-        */
+
       }
     }
 
