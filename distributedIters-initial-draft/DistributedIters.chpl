@@ -332,6 +332,29 @@ where tag == iterKind.leader
     {
       on L do
       {
+        // Divide work per processor.
+        //const nTasks=min(iterCount, defaultNumTasks(numTasks));
+        const nTasks = 1;
+        coforall tid in 0..#nTasks
+        with (ref remain, ref moreWork, ref lock) do
+        {
+          while moreWork do
+          {
+            const current:cType=adaptSplit(remain, factor, moreWork, lock);
+            if current.length != 0 then
+            {
+              if debugDistributedIters
+              then writeln("Distributed guided iterator (leader): Locale ",
+                           here.id, ", tid ", tid, ", yielding range ",
+                           unDensify(current,c),
+                           " (", current.length, "/", iterCount, ")",
+                           " as ", current);
+              yield (current,);
+            }
+          }
+        }
+
+
         while true do
         {
           const portion:cType=adaptSplit(remain, factor, moreWork, lock);
