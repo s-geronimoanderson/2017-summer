@@ -343,8 +343,8 @@ where tag == iterKind.leader
                      localFactor.locale, "), and localLock (",
                      localLock.locale, ")");
 
-        while moreLocalWork do
-        {
+        //while moreLocalWork do
+        //{
           lock.lock();
           if moreWork then
           {
@@ -353,7 +353,7 @@ where tag == iterKind.leader
                          here.locale, ": ", masterLocale, " has more work");
           }
           moreLocalWork=false;
-        }
+        //}
       }
     }
 
