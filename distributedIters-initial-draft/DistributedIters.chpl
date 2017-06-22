@@ -326,6 +326,28 @@ where tag == iterKind.leader
     const factor=numLocales;
     var lock:vlock;
 
+    // Set up local equivalents.
+    coforall L in Locales
+    {
+      on L do
+      {
+        var moreLocalWork=false;
+        const localFactor=1;
+        var localLock:vlock;
+
+        if debugDistributedIters
+        then writeln("Distributed guided iterator (leader): Locale ",
+                     here.id, ": Initialized moreLocalWork (",
+                     moreLocalWork.locale, "), localFactor (",
+                     localFactor.locale, "), and localLock (",
+                     localLock.locale, ")");
+      }
+    }
+
+    yield (0..#1,);
+
+
+    /*
     coforall L in Locales
     with (ref remain, ref moreWork, ref lock) do
     {
@@ -354,26 +376,9 @@ where tag == iterKind.leader
             }
           }
         }
-
-        /*
-        while true do
-        {
-          const portion:cType=adaptSplit(remain, factor, moreWork, lock);
-          writeln("Distributed guided iterator (leader): Locale ",
-                  here.id, ": moreWork (", moreWork.locale,
-                  "), portion = ", portion, " (",
-                  portion.locale, ")");
-
-          yield (portion,);
-
-          lock.lock();
-          const remainLength = remain.length;
-          lock.unlock();
-          if remainLength == 0 then break;
-        }
-        */
       }
     }
+    */
 
     /*
 
