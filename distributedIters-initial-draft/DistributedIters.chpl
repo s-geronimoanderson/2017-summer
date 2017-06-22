@@ -337,8 +337,10 @@ where tag == iterKind.leader
         coforall tid in 0..#nTasks
         with (ref remain, ref moreWork, ref lock) do
         {
+          lock.lock();
           while moreWork do
           {
+            lock.unlock();
             const current:cType=adaptSplit(remain, factor, moreWork, lock);
             if current.length != 0 then
             {
