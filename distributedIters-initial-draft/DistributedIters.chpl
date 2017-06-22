@@ -327,38 +327,39 @@ where tag == iterKind.leader
     var lock:vlock;
     var moreWork=true;
 
-    coforall L in Locales
-    with (ref lock, ref moreWork) do
+    while moreWork do
     {
-      on L do
+      coforall L in Locales
+      with (ref lock, ref moreWork, ref remain) do
       {
-        const localFactor=1;
-        var localLock:vlock;
-        var moreLocalWork=true;
+        on L do
+        {
+          const localFactor=1;
+          var localLock:vlock;
+          var moreLocalWork=true;
+          var localWork:cType;
 
-        if debugDistributedIters
-        then writeln("Distributed guided iterator (leader): ",
-                     here.locale, ": Initialized moreLocalWork (",
-                     moreLocalWork.locale, "), localFactor (",
-                     localFactor.locale, "), and localLock (",
-                     localLock.locale, ")");
+          if debugDistributedIters
+          then writeln("Distributed guided iterator (leader): ",
+                       here.locale, ": Initialized moreLocalWork (",
+                       moreLocalWork.locale, "), localFactor (",
+                       localFactor.locale, "), and localLock (",
+                       localLock.locale, ")");
 
-        //while moreLocalWork do
-        //{
-          lock.lock();
-          if moreWork then
+          while moreLocalWork do
           {
-            lock.unlock();
-            writeln("Distributed guided iterator (leader): ",
-                         here.locale, ": ", masterLocale, " has more work");
+            on masterLocale do
+            {
+              if moreWork
+              then localWork=adaptSplit(remain, factor, moreWork, lock);
+              else moreLocalWork=false;
+            }
+            if moreLocalWork
+            then yield (localWork,);
           }
-          moreLocalWork=false;
-        //}
+        }
       }
     }
-
-    yield (0..#1,);
-
 
     /*
     coforall L in Locales
