@@ -322,25 +322,38 @@ where tag == iterKind.leader
   }
   else
   {
-    var moreWork=true;
     const factor=numLocales;
+    const masterLocale=here.locale;
     var lock:vlock;
+    var moreWork=true;
 
-    // Set up local equivalents.
     coforall L in Locales
+    with (ref lock, ref moreWork) do
     {
       on L do
       {
-        var moreLocalWork=false;
         const localFactor=1;
         var localLock:vlock;
+        var moreLocalWork=true;
 
         if debugDistributedIters
-        then writeln("Distributed guided iterator (leader): Locale ",
-                     here.id, ": Initialized moreLocalWork (",
+        then writeln("Distributed guided iterator (leader): ",
+                     here.locale, ": Initialized moreLocalWork (",
                      moreLocalWork.locale, "), localFactor (",
                      localFactor.locale, "), and localLock (",
                      localLock.locale, ")");
+
+        while moreLocalWork do
+        {
+          lock.lock();
+          if moreWork then
+          {
+            lock.unlock();
+            writeln("Distributed guided iterator (leader): ",
+                         here.locale, ": ", masterLocale, " has more work");
+          }
+          moreLocalWork=false;
+        }
       }
     }
 
