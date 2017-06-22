@@ -351,8 +351,8 @@ where tag == iterKind.leader
             on masterLocale do
             {
               if moreWork
-              then localWork=adaptSplit(remain, factor, moreWork, lock);
-              else moreLocalWork=false;
+              then on L do localWork=adaptSplit(remain, factor, moreWork, lock);
+              else on L do moreLocalWork=false;
             }
             if moreLocalWork
             then yield (localWork,);
