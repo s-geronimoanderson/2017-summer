@@ -37,7 +37,7 @@ var testGuidedDistributedRangeArray:[controlRange] int=0;
 writeln("Testing a range (distributed guided iterator)...");
 forall i in guidedDistributed(controlRange) do
   testGuidedDistributedRangeArray[i] = testGuidedDistributedRangeArray[i]+1;
-checkCorrectness(testGuidedDistributedRangeArray,controlRange);
+//checkCorrectness(testGuidedDistributedRangeArray,controlRange);
 
 /*
 writeln("Testing a strided range...");

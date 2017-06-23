@@ -322,6 +322,19 @@ where tag == iterKind.leader
     var lock:vlock;
     var moreWork=true;
 
+    cobegin
+    {
+      on masterLocale
+      {
+        yield (0..#1,);
+      }
+      coforall L in Locales
+      {
+        if L != masterLocale then yield (L.id..#1,);
+      }
+    }
+
+    /* This works! Just doesn't include LOCALE0.
     coforall L in Locales
     with (ref lock, ref moreWork, ref remain) do
     {
@@ -356,37 +369,8 @@ where tag == iterKind.leader
           }
         }
       }
-      else on L do // L == masterLocale && numLocales != 1
-      { // Running on master locale.
-        var moreMasterWork=true;
-        var masterWork:cType;
-
-        while moreMasterWork do
-        {
-          on masterLocale do
-          {
-            if moreWork
-            then on L do
-            {
-              masterWork=adaptSplit(remain, factor, moreWork, lock);
-              if masterWork.length == 0 then moreMasterWork=false;
-            }
-            else on L do moreMasterWork=false; // TODO: Take out "on L do"
-          }
-
-          if moreMasterWork then
-          {
-            if debugDistributedIters
-            then writeln("Distributed guided iterator (leader): ",
-                         here.locale, ": yielding range ",
-                         unDensify(masterWork,c),
-                         " (", masterWork.length, "/", iterCount, ")",
-                         " as ", masterWork);
-            yield (masterWork,);
-          }
-        }
-      }
     }
+    */
 
     /*
     coforall L in Locales
