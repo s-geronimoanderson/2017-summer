@@ -322,40 +322,37 @@ where tag == iterKind.leader
     var lock:vlock;
     var moreWork=true;
 
-    while moreWork do
+    coforall L in Locales
+    with (ref lock, ref moreWork, ref remain) do
     {
-      coforall L in Locales
-      with (ref lock, ref moreWork, ref remain) do
+      if L != masterLocale || numLocales == 1
+      then on L do
       {
-        if L != masterLocale || numLocales == 1
-        then on L do
+        var moreLocalWork=true;
+        var localWork:cType;
+
+        while moreLocalWork do
         {
-          var moreLocalWork=true;
-          var localWork:cType;
-
-          while moreLocalWork do
+          on masterLocale do
           {
-            on masterLocale do
+            if moreWork
+            then on L do
             {
-              if moreWork
-              then on L do
-              {
-                localWork=adaptSplit(remain, factor, moreWork, lock);
-                if localWork.length == 0 then moreLocalWork=false;
-              }
-              else on L do moreLocalWork=false;
+              localWork=adaptSplit(remain, factor, moreWork, lock);
+              if localWork.length == 0 then moreLocalWork=false;
             }
+            else on L do moreLocalWork=false;
+          }
 
-            if moreLocalWork then
-            {
-              if debugDistributedIters
-              then writeln("Distributed guided iterator (leader): ",
-                           here.locale, ": yielding range ",
-                           unDensify(localWork,c),
-                           " (", localWork.length, "/", iterCount, ")",
-                           " as ", localWork);
-              yield (localWork,);
-            }
+          if moreLocalWork then
+          {
+            if debugDistributedIters
+            then writeln("Distributed guided iterator (leader): ",
+                         here.locale, ": yielding range ",
+                         unDensify(localWork,c),
+                         " (", localWork.length, "/", iterCount, ")",
+                         " as ", localWork);
+            yield (localWork,);
           }
         }
       }
