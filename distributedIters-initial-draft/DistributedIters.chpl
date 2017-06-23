@@ -341,7 +341,7 @@ where tag == iterKind.leader
               localWork=adaptSplit(remain, factor, moreWork, lock);
               if localWork.length == 0 then moreLocalWork=false;
             }
-            else on L do moreLocalWork=false;
+            else on L do moreLocalWork=false; // TODO: Take out "on L do"
           }
 
           if moreLocalWork then
@@ -356,7 +356,7 @@ where tag == iterKind.leader
           }
         }
       }
-      else on masterLocale do // L == masterLocale && numLocales != 1
+      else on L do // L == masterLocale && numLocales != 1
       { // Running on master locale.
         var moreLocalWork=true;
         var localWork:cType;
@@ -369,6 +369,8 @@ where tag == iterKind.leader
             localWork=adaptSplit(remain, factor, moreWork, lock);
             if localWork.length == 0 then moreLocalWork=false;
           }
+          else moreLocalWork=false;
+
           if moreLocalWork then
           {
             if debugDistributedIters
