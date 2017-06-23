@@ -327,7 +327,7 @@ where tag == iterKind.leader
     {
       if L != masterLocale || numLocales == 1
       then on L do
-      {
+      { // Running on singleton locale, or on remote locales.
         var moreLocalWork=true;
         var localWork:cType;
 
@@ -355,6 +355,32 @@ where tag == iterKind.leader
             yield (localWork,);
           }
         }
+      }
+      else // L == masterLocale && numLocales != 1
+      { // Running on master locale.
+        var moreLocalWork=true;
+        var localWork:cType;
+
+        while moreLocalWork do
+        {
+          if moreWork
+          then
+          {
+            localWork=adaptSplit(remain, factor, moreWork, lock);
+            if localWork.length == 0 then moreLocalWork=false;
+          }
+          if moreLocalWork then
+          {
+            if debugDistributedIters
+            then writeln("Distributed guided iterator (leader): ",
+                         here.locale, ": yielding range ",
+                         unDensify(localWork,c),
+                         " (", localWork.length, "/", iterCount, ")",
+                         " as ", localWork);
+            yield (localWork,);
+          }
+        }
+
       }
     }
 
