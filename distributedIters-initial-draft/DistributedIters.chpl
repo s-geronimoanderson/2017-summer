@@ -338,9 +338,14 @@ where tag == iterKind.leader
             on masterLocale do
             {
               if moreWork
-              then on L do localWork=adaptSplit(remain, factor, moreWork, lock);
+              then on L do
+              {
+                localWork=adaptSplit(remain, factor, moreWork, lock);
+                if localWork.length == 0 then moreLocalWork=false;
+              }
               else on L do moreLocalWork=false;
             }
+
             if moreLocalWork then
             {
               if debugDistributedIters
