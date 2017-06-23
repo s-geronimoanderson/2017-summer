@@ -358,31 +358,31 @@ where tag == iterKind.leader
       }
       else on L do // L == masterLocale && numLocales != 1
       { // Running on master locale.
-        var moreLocalWork=true;
-        var localWork:cType;
+        var moreMasterWork=true;
+        var masterWork:cType;
 
-        while moreLocalWork do
+        while moreMasterWork do
         {
           on masterLocale do
           {
             if moreWork
             then on L do
             {
-              localWork=adaptSplit(remain, factor, moreWork, lock);
-              if localWork.length == 0 then moreLocalWork=false;
+              masterWork=adaptSplit(remain, factor, moreWork, lock);
+              if masterWork.length == 0 then moreMasterWork=false;
             }
-            else on L do moreLocalWork=false; // TODO: Take out "on L do"
+            else on L do moreMasterWork=false; // TODO: Take out "on L do"
           }
 
-          if moreLocalWork then
+          if moreMasterWork then
           {
             if debugDistributedIters
             then writeln("Distributed guided iterator (leader): ",
                          here.locale, ": yielding range ",
-                         unDensify(localWork,c),
-                         " (", localWork.length, "/", iterCount, ")",
-                         " as ", localWork);
-            yield (localWork,);
+                         unDensify(masterWork,c),
+                         " (", masterWork.length, "/", iterCount, ")",
+                         " as ", masterWork);
+            yield (masterWork,);
           }
         }
       }
