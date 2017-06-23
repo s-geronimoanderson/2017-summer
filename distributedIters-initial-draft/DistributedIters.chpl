@@ -330,7 +330,7 @@ where tag == iterKind.leader
       }
       coforall L in Locales
       {
-        if L != masterLocale then yield (L.id..#1,);
+        if L != masterLocale then on L do yield (L.id..#1,);
       }
     }
 
