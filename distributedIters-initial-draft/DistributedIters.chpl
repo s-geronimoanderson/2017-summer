@@ -360,9 +360,32 @@ where tag == iterKind.leader
           }
         }
       }
-      on masterLocale
+      on masterLocale do
       {
-        yield (1..0,);
+        var moreLocalWork=true;
+        var localWork:cType;
+
+        while moreLocalWork do
+        {
+          if moreWork
+          then
+          {
+            localWork=adaptSplit(remain, factor, moreWork, lock);
+            if localWork.length == 0 then moreLocalWork=false;
+          }
+          else moreLocalWork=false;
+
+          if moreLocalWork then
+          {
+            if debugDistributedIters
+            then writeln("Distributed guided iterator (leader): ",
+                         here.locale, ": yielding range ",
+                         unDensify(localWork,c),
+                         " (", localWork.length, "/", iterCount, ")",
+                         " as ", localWork);
+            yield (localWork,);
+          }
+        }
       }
     }
 
