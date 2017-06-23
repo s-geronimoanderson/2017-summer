@@ -332,9 +332,12 @@ where tag == iterKind.leader
       coforall L in Locales
       with (ref lock, ref moreWork, ref remain) do
       {
-        on L do
+        if L != masterLocale || numLocales == 1
+        then on L do
         {
           const localFactor=1;
+          // iterCount is non-zero; If numTasks is 0, use some default value.
+          const localNumTasks=min(iterCount, defaultNumTasks(numTasks));
           var localLock:vlock;
           var moreLocalWork=true;
           var localWork:cType;
@@ -392,15 +395,6 @@ where tag == iterKind.leader
         }
       }
     }
-    */
-
-    /*
-
-    // iterCount is non-zero; If numTasks is 0, use some default value.
-    const nTasks=min(iterCount, defaultNumTasks(numTasks));
-
-    var moreLocalWork=true;
-
     */
 
     /*
