@@ -356,7 +356,7 @@ where tag == iterKind.leader
           }
         }
       }
-      else // L == masterLocale && numLocales != 1
+      else on masterLocale do // L == masterLocale && numLocales != 1
       { // Running on master locale.
         var moreLocalWork=true;
         var localWork:cType;
