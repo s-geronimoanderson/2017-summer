@@ -268,19 +268,14 @@ private proc adaptSplit(ref rangeToSplit:range(?),
     rangeToSplit = rangeToSplit#(direction*(size-totLen));
   }
   lock.unlock();
-
-  writeln("adaptSplit: Locale ", here.id, ", rangeToSplit is on ",
-          rangeToSplit.locale, ", initialSubrange is on ",
-          initialSubrange.locale, ".");
-
   return initialSubrange;
 }
 
 
 
 
-iter guided(c:range(?),
-            numTasks:int=0)
+iter guidedDistributed(c:range(?),
+                       numTasks:int=0)
 {
   if debugDistributedIters
   then writeln("Serial guided iterator, working with range ", c);
@@ -302,9 +297,9 @@ where tag == iterKind.standalone
 */
 
 pragma "no doc"
-iter guided(param tag:iterKind,
-            c:range(?),
-            numTasks:int=0)
+iter guidedDistributed(param tag:iterKind,
+                       c:range(?),
+                       numTasks:int=0)
 where tag == iterKind.leader
 {
   const iterCount=c.length;
@@ -335,19 +330,8 @@ where tag == iterKind.leader
         if L != masterLocale || numLocales == 1
         then on L do
         {
-          const localFactor=1;
-          // iterCount is non-zero; If numTasks is 0, use some default value.
-          const localNumTasks=min(iterCount, defaultNumTasks(numTasks));
-          var localLock:vlock;
           var moreLocalWork=true;
           var localWork:cType;
-
-          if debugDistributedIters
-          then writeln("Distributed guided iterator (leader): ",
-                       here.locale, ": Initialized moreLocalWork (",
-                       moreLocalWork.locale, "), localFactor (",
-                       localFactor.locale, "), and localLock (",
-                       localLock.locale, ")");
 
           while moreLocalWork do
           {
@@ -357,8 +341,16 @@ where tag == iterKind.leader
               then on L do localWork=adaptSplit(remain, factor, moreWork, lock);
               else on L do moreLocalWork=false;
             }
-            if moreLocalWork
-            then yield (localWork,);
+            if moreLocalWork then
+            {
+              if debugDistributedIters
+              then writeln("Distributed guided iterator (leader): ",
+                           here.locale, ": yielding range ",
+                           unDensify(localWork,c),
+                           " (", localWork.length, "/", iterCount, ")",
+                           " as ", localWork);
+              yield (localWork,);
+            }
           }
         }
       }
@@ -423,16 +415,16 @@ where tag == iterKind.leader
 
 // Follower
 pragma "no doc"
-iter guided(param tag:iterKind,
-            c:range(?),
-            numTasks:int,
-            followThis)
+iter guidedDistributed(param tag:iterKind,
+                       c:range(?),
+                       numTasks:int,
+                       followThis)
 where tag == iterKind.follower
 {
   const current:c.type=unDensify(followThis(1),c);
   if debugDistributedIters
-  then writeln("Distributed guided iterator (follower): Locale ",
-               here.id, ", received range ", followThis,
+  then writeln("Distributed guided iterator (follower): ", here.locale, ": ",
+               "received range ", followThis,
                " (", current.length, "/", c.length, ")",
                "; shifting to ", current);
   for i in current do yield i;
