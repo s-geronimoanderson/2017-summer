@@ -335,16 +335,13 @@ where tag == iterKind.leader
 
         while moreLocalWork do
         {
-          on masterLocale do
+          if moreWork
+          then
           {
-            if moreWork
-            then on L do
-            {
-              localWork=adaptSplit(remain, factor, moreWork, lock);
-              if localWork.length == 0 then moreLocalWork=false;
-            }
-            else on L do moreLocalWork=false; // TODO: Take out "on L do"
+            localWork=adaptSplit(remain, factor, moreWork, lock);
+            if localWork.length == 0 then moreLocalWork=false;
           }
+          else moreLocalWork=false;
 
           if moreLocalWork then
           {
