@@ -78,12 +78,13 @@ const testBlockDistributedDomain={1..n} dmapped
 //Arrays for verifying correctness.
 var testDomainArray:[testDomain] int=0;
 
+/* Benchmarking.
 writeln("Testing a domain...");
 for i in distributed(testDomain) do {
   testDomainArray[i] = testDomainArray[i]+1;
 }
 checkCorrectness(testDomainArray,controlDomain);
-
+End benchmarking. */
 
 /*
 writeln("Testing an empty domain...");
@@ -117,11 +118,13 @@ for i in distributed(testBlockDistributedDomain) do {
 */
 var testArray:[controlDomain] int=0;
 
+/* Benchmarking.
 writeln("Testing an array...");
 for i in distributed(testArray) do {
   testArray[i] = testArray[i]+1;
 }
 checkCorrectness(testArray,controlDomain);
+End benchmarking. */
 
 /*
 const testArrayDomain={1..n};
