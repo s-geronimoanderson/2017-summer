@@ -322,75 +322,43 @@ where tag == iterKind.leader
     var lock:vlock;
     var moreWork=true;
 
-    cobegin
-    with (ref lock, ref moreWork, ref remain)
+    // coforall loc in Locales do on loc {
+    coforall L in Locales
+    with (ref lock, ref moreWork, ref remain) do
+    on L do
     {
-      coforall L in Locales
-      with (ref lock, ref moreWork, ref remain) do
-      {
-        if L != masterLocale
-        then on L do
-        { // Running on singleton locale, or on remote locales.
-          var moreLocalWork=true;
-          var localWork:cType;
+      if L != masterLocale || numLocales == 1
+      then
+      { // Running on singleton locale, or on remote locales.
+        var moreLocalWork=true;
+        var localWork:cType;
 
-          while moreLocalWork do
-          {
-            on masterLocale do
-            {
-              if moreWork
-              then on L do
-              {
-                localWork=adaptSplit(remain, factor, moreWork, lock);
-                if localWork.length == 0 then moreLocalWork=false;
-              }
-              else on L do moreLocalWork=false; // TODO: Take out "on L do"
-            }
-
-            if moreLocalWork then
-            {
-              if debugDistributedIters
-              then writeln("Distributed guided iterator (leader): ",
-                           here.locale, ": yielding range ",
-                           unDensify(localWork,c),
-                           " (", localWork.length, "/", iterCount, ")",
-                           " as ", localWork);
-              yield (localWork,);
-            }
-          }
-        }
-      }
-      on masterLocale do
-      {
-        var moreMasterWork=true;
-        var masterWork:cType;
-
-        while moreMasterWork do
+        while moreLocalWork do
         {
-          if moreWork
-          then
+          on masterLocale do
           {
-            masterWork=adaptSplit(remain, factor, moreWork, lock);
-            if masterWork.length == 0 then moreMasterWork=false;
+            if moreWork
+            then on L do
+            {
+              localWork=adaptSplit(remain, factor, moreWork, lock);
+              if localWork.length == 0 then moreLocalWork=false;
+            }
+            else on L do moreLocalWork=false; // TODO: Take out "on L do"
           }
-          else moreMasterWork=false;
 
-          if moreMasterWork then
+          if moreLocalWork then
           {
             if debugDistributedIters
             then writeln("Distributed guided iterator (leader): ",
                          here.locale, ": yielding range ",
-                         unDensify(masterWork,c),
-                         " (", masterWork.length, "/", iterCount, ")",
-                         " as ", masterWork);
-            yield (masterWork,);
+                         unDensify(localWork,c),
+                         " (", localWork.length, "/", iterCount, ")",
+                         " as ", localWork);
+            yield (localWork,);
           }
         }
       }
     }
-
-    /* This works! Just doesn't include LOCALE0.
-    */
 
     /*
     coforall L in Locales
