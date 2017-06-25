@@ -327,7 +327,7 @@ where tag == iterKind.leader
     with (ref lock, ref moreWork, ref remain) do
     on L do
     {
-      if L != masterLocale || numLocales == 1
+      if true || L != masterLocale || numLocales == 1
       then
       { // Running on singleton locale, or on remote locales.
         var moreLocalWork=true;
