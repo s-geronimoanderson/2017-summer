@@ -23,7 +23,7 @@
 */
 module DistributedIters
 {
-use BlockDist;
+use DynamicIters;
 
 // Toggle debugging output.
 config param debugDistributedIters:bool=true;
@@ -327,9 +327,9 @@ where tag == iterKind.leader
     with (ref lock, ref moreWork, ref remain) do
     on L do
     {
-      if true || L != masterLocale || numLocales == 1
+      if L != masterLocale || numLocales == 1
       then
-      { // Running on singleton locale, or on remote locales.
+      {
         var moreLocalWork=true;
         var localWork:cType;
 
@@ -345,13 +345,46 @@ where tag == iterKind.leader
 
           if moreLocalWork then
           {
+            // Divide work per processor using single-locale guided iterator.
+            const localIterCount=localWork.length;
+            if localIterCount == 0 then halt("The range is empty");
+            const nTasks=min(localIterCount, defaultNumTasks(numTasks));
+            const localFactor=nTasks;
+            var localLock:vlock;
+
+            coforall tid in 0..#nTasks
+            with (ref localWork, ref moreLocalWork, ref localLock) do
+            {
+              while moreLocalWork do
+              {
+                const current:cType=adaptSplit(localWork,
+                                               localFactor,
+                                               moreLocalWork,
+                                               localLock);
+                if current.length != 0 then
+                {
+                  if debugDistributedIters
+                  then writeln("Distributed guided iterator (leader): ",
+                               here.locale, ", tid ", tid, ": yielding range ",
+                               unDensify(current,c),
+                               " (", current.length, "/", localIterCount, ")",
+                               " as ", current);
+                  yield (current,);
+                }
+              }
+            }
+
+            /* Single-threaded locale-specific version.
             if debugDistributedIters
             then writeln("Distributed guided iterator (leader): ",
                          here.locale, ": yielding range ",
                          unDensify(localWork,c),
-                         " (", localWork.length, "/", iterCount, ")",
+                         " (", localIterCount, "/", iterCount, ")",
                          " as ", localWork);
-            yield (localWork,);
+
+            for i in guided(tag=iterKind.leader, localWork, nTasks) do
+              yield i;
+            */
           }
         }
       }
