@@ -112,9 +112,7 @@ where tag == iterKind.leader
       {
         var getMoreWork=true;
         var localIterCount:int;
-        var localLock:vlock;
         var localWork:cType;
-        var moreLocalWork=true;
 
         while getMoreWork do
         {
@@ -136,6 +134,13 @@ where tag == iterKind.leader
             const nTasks=min(localIterCount, defaultNumTasks(numTasks));
             const localFactor=nTasks;
 
+            var localLock:vlock;
+            var moreLocalWork=true;
+
+            for i in guided(tag=iterKind.leader, localWork, nTasks) do
+              yield i;
+
+            /*
             // TODO: Can we simply employ the single-locale guided iterator
             // here? (Tried once and failed correctness test.)
             coforall tid in 0..#nTasks
@@ -160,6 +165,7 @@ where tag == iterKind.leader
                 }
               }
             }
+            */
           }
         }
       }
