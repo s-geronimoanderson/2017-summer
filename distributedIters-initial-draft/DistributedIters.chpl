@@ -352,6 +352,7 @@ where tag == iterKind.leader
             const localFactor=nTasks;
             var localLock:vlock;
 
+            /* Don't need to do it ourselves?
             coforall tid in 0..#nTasks
             with (ref localWork, ref moreLocalWork, ref localLock) do
             {
@@ -373,8 +374,9 @@ where tag == iterKind.leader
                 }
               }
             }
+            */
 
-            /* Single-threaded locale-specific version.
+            // Single-threaded locale-specific version.
             if debugDistributedIters
             then writeln("Distributed guided iterator (leader): ",
                          here.locale, ": yielding range ",
@@ -384,7 +386,6 @@ where tag == iterKind.leader
 
             for i in guided(tag=iterKind.leader, localWork, nTasks) do
               yield i;
-            */
           }
         }
       }
