@@ -110,11 +110,13 @@ where tag == iterKind.leader
       if L != masterLocale || numLocales == 1
       then
       {
-        var moreLocalWork=true;
+        var getMoreWork=true;
         var localWork:cType;
 
-        while moreLocalWork do
+        while getMoreWork do
         {
+          var localIterCount:int;
+
           if moreWork
           then
           {
@@ -123,29 +125,43 @@ where tag == iterKind.leader
                                  moreWork,
                                  lock,
                                  profThreshold=chunkThreshold);
-            if localWork.length == 0 then moreLocalWork=false;
+            localIterCount=localWork.length;
+            if localIterCount == 0 then getMoreWork=false;
           }
-          else moreLocalWork=false;
+          else getMoreWork=false;
 
-          if moreLocalWork then
+          if getMoreWork then
           {
-            // Divide work per processor using single-locale guided iterator.
-            const localIterCount=localWork.length;
-            if localIterCount == 0 then halt("The range is empty");
             const nTasks=min(localIterCount, defaultNumTasks(numTasks));
+            var localLock:vlock;
+            var moreLocalWork=true;
 
-            if debugDistributedIters
-            then writeln("Distributed guided iterator (leader): ",
-                         here.locale, ": yielding range ",
-                         unDensify(localWork,c),
-                         " (", localIterCount, "/", iterCount, ")",
-                         " as ", localWork);
+            const localFactor=nTasks;
 
-            yield (localWork,);
-            /*
-            for t in guided(tag=iterKind.leader, localWork, nTasks) do
-              yield t;
-            */
+            // TODO: Can we simply employ the single-locale guided iterator
+            // here?
+            coforall tid in 0..#nTasks
+            with (ref localLock, ref localWork, ref moreLocalWork) do
+            {
+              while moreLocalWork do
+              {
+                const current:cType=adaptSplit(localWork,
+                                               localFactor,
+                                               moreLocalWork,
+                                               localLock);
+                if current.length != 0 then
+                {
+                  if debugDistributedIters
+                  then writeln("Distributed guided iterator (leader): ",
+                               here.locale, ", tid ", tid, ": yielding range ",
+                               unDensify(current,localWork),
+                               " (", current.length, "/", localIterCount, ")",
+                               " as ", current);
+
+                  yield (current,);
+                }
+              }
+            }
           }
         }
       }
