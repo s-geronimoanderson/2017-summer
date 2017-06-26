@@ -88,7 +88,8 @@ where tag == iterKind.leader
   type cType=c.type;
   var remain:cType=densify(c,c);
 
-  if iterCount == 1 || numTasks == 1 && numLocales == 1 then
+  if iterCount == 1 || numTasks == 1 && numLocales == 1
+  then
   {
     if debugDistributedIters
     then writeln("Distributed guided iterator: serial execution due to ",
@@ -99,7 +100,8 @@ where tag == iterKind.leader
   {
     const chunkThreshold:int=if minChunkSize == 0
                              then divceilpos(iterCount, numLocales):int
-                             else minChunkSize;    const factor=numLocales;
+                             else minChunkSize;
+    const factor=numLocales;
     const masterLocale=here.locale;
     var lock:vlock;
     var moreWork=true;
@@ -195,13 +197,14 @@ where tag == iterKind.follower
 private proc defaultNumTasks(nTasks:int)
 {
   var dnTasks=nTasks;
-  if nTasks==0 then
+  if nTasks == 0
+  then
   {
-    if dataParTasksPerLocale==0
+    if dataParTasksPerLocale == 0
     then dnTasks=here.maxTaskPar;
     else dnTasks=dataParTasksPerLocale;
   }
-  else if nTasks<0 then halt("'numTasks' is negative");
+  else if nTasks < 0 then halt("'numTasks' is negative");
   return dnTasks;
 }
 
@@ -216,7 +219,8 @@ record vlock
     do while l.testAndSet() != false
        do chpl_task_yield();
   }
-  proc unlock() {
+  proc unlock()
+  {
     l.write(false);
   }
 }
