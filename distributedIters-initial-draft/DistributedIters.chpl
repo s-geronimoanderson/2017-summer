@@ -141,8 +141,11 @@ where tag == iterKind.leader
                          " (", localIterCount, "/", iterCount, ")",
                          " as ", localWork);
 
+            yield (localWork,);
+            /*
             for t in guided(tag=iterKind.leader, localWork, nTasks) do
               yield t;
+            */
           }
         }
       }
