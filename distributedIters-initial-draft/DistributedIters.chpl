@@ -111,12 +111,13 @@ where tag == iterKind.leader
       then
       {
         var getMoreWork=true;
+        var localIterCount:int;
+        var localLock:vlock;
         var localWork:cType;
+        var moreLocalWork=true;
 
         while getMoreWork do
         {
-          var localIterCount:int;
-
           if moreWork
           then
           {
@@ -133,13 +134,10 @@ where tag == iterKind.leader
           if getMoreWork then
           {
             const nTasks=min(localIterCount, defaultNumTasks(numTasks));
-            var localLock:vlock;
-            var moreLocalWork=true;
-
             const localFactor=nTasks;
 
             // TODO: Can we simply employ the single-locale guided iterator
-            // here?
+            // here? (Tried once and failed correctness test.)
             coforall tid in 0..#nTasks
             with (ref localLock, ref localWork, ref moreLocalWork) do
             {
