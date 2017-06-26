@@ -83,7 +83,7 @@ where tag == iterKind.leader
   if iterCount == 0 then halt("The range is empty");
 
   const chunkThreshold:int=if minChunkSize == 0
-                           then iterCount/numLocales
+                           then divceilpos(iterCount, numLocales):int
                            else minChunkSize;
 
   type cType=c.type;
