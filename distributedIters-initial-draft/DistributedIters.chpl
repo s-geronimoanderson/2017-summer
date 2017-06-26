@@ -18,12 +18,14 @@
  */
 
 /*
-  This module contains several iterators that can be used to drive a `forall`
-  loop by distributing iterations for a range, domain, or array.
+  This module [eventually] contains several iterators that can be used to drive
+  a `forall` loop by distributing iterations for a range, domain, or array.
+
+  Part of a 2017 Cray summer intern project by Sean I. Geronimo Anderson
+  (sgeronimo@cray.com) as mentored by Ben Harshbarger (bharshbarg@cray.com).
 */
 module DistributedIters
 {
-use DynamicIters;
 
 // Toggle debugging output.
 config param debugDistributedIters:bool=true;
@@ -35,7 +37,7 @@ config param debugDistributedIters:bool=true;
   :type c: `range(?)`
 
   :arg numTasks: The number of tasks to use. Must be >= zero. If this argument
-                 has the value 0, it will use the value indicated by
+                 has the value 0, the iterator will use the value indicated by
                  ``dataParTasksPerLocale``.
   :type numTasks: `int`
 
@@ -70,6 +72,7 @@ iter guidedDistributed(c:range(?),
   for i in c do yield i;
 }
 
+// Zippered version.
 pragma "no doc"
 iter guidedDistributed(param tag:iterKind,
                        c:range(?),
@@ -168,7 +171,6 @@ where tag == iterKind.leader
     }
   }
 }
-
 pragma "no doc"
 iter guidedDistributed(param tag:iterKind,
                        c:range(?),
