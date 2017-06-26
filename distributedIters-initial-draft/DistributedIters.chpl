@@ -82,10 +82,6 @@ where tag == iterKind.leader
   const iterCount=c.length;
   if iterCount == 0 then halt("The range is empty");
 
-  const chunkThreshold:int=if minChunkSize == 0
-                           then divceilpos(iterCount, numLocales):int
-                           else minChunkSize;
-
   type cType=c.type;
   var remain:cType=densify(c,c);
 
@@ -98,7 +94,9 @@ where tag == iterKind.leader
   }
   else
   {
-    const factor=numLocales;
+    const chunkThreshold:int=if minChunkSize == 0
+                             then divceilpos(iterCount, numLocales):int
+                             else minChunkSize;    const factor=numLocales;
     const masterLocale=here.locale;
     var lock:vlock;
     var moreWork=true;
@@ -110,6 +108,7 @@ where tag == iterKind.leader
       if L != masterLocale || numLocales == 1
       then
       {
+
         var getMoreWork=true;
         var localIterCount:int;
         var localWork:cType;
@@ -134,6 +133,8 @@ where tag == iterKind.leader
             const nTasks=min(localIterCount, defaultNumTasks(numTasks));
             const localFactor=nTasks;
 
+            // TODO: Why if we define these just after "if L != masterLocale
+            // ..." do we get an erroneous iteration?
             var localLock:vlock;
             var moreLocalWork=true;
 
