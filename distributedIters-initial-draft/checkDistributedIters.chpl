@@ -1,6 +1,9 @@
 /*
   Test to check the correctness of the distributed() iterator from the
   DistributedIters module.
+
+  Example usage:
+  chpl -I. checkDistributedIters.chpl && time ./a.out --n=10000 -nl 4
 */
 use DistributedIters;
 
