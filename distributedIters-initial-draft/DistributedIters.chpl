@@ -28,7 +28,7 @@ module DistributedIters
 {
 
 // Toggle debugging output.
-config param debugDistributedIters:bool=true;
+config param debugDistributedIters:bool=false;
 
 // Guided Distributed Iterator.
 /*
