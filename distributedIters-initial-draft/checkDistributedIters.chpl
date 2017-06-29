@@ -7,6 +7,8 @@
 */
 use DistributedIters;
 
+use Time;
+var timer:Timer;
 /*
   Control variables. These determine the test variables (defined later) and
   provide control for checking correctness.
@@ -17,8 +19,14 @@ var controlRange:range=1..n;
 // Tests.
 writeln("Testing a range (distributed guided iterator)...");
 var testGuidedDistributedRangeArray:[controlRange] int=0;
+timer.start();
 forall i in guidedDistributed(controlRange) do
   testGuidedDistributedRangeArray[i] = testGuidedDistributedRangeArray[i]+1;
+
+  timer.stop();
+  writeln("Time: ", timer.elapsed());
+  timer.clear();
+
 checkCorrectness(testGuidedDistributedRangeArray,controlRange);
 
 // Helper functions.
