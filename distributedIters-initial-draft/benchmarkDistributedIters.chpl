@@ -9,6 +9,7 @@ use DistributedIters;
 use Math;
 use Random;
 use Sort;
+use Time;
 /*
   Control variables. These determine the test variables (defined later) and
   provide control for checking correctness.
@@ -24,6 +25,10 @@ writeln("Testing a uniformly random workload...");
 var uniformlyRandomWorkload:[controlRange] real=0.0;
 fillRandom(uniformlyRandomWorkload);
 var bestK, bestI:int=0;
+
+var timer:Timer;
+timer.start();
+
 for i in guidedDistributed(controlRange) do
 {
   var result:real;
@@ -80,6 +85,11 @@ for i in guidedDistributed(controlRange) do
 
   //uniformlyRandomWorkload[i] = result;
 }
+
+timer.stop();
+writeln("Time: ", timer.elapsed());
+timer.clear();
+
 writeln("uniformlyRandomWorkload[", bestI, "] = ",
         uniformlyRandomWorkload[bestI], " with size ", bestK,
         ".");

@@ -2,8 +2,11 @@
   Test to check the correctness of the distributed() iterator from the
   DistributedIters module.
 */
-use BlockDist;
-use DistributedIters;
+use BlockDist,
+    DistributedItersSandbox,
+    Time;
+
+var timer:Timer;
 
 /*
   Control variables. These determine the test variables (defined later) and
@@ -35,8 +38,14 @@ checkCorrectness(testRangeArray,controlRange);
 var testGuidedDistributedRangeArray:[controlRange] int=0;
 
 writeln("Testing a range (distributed guided iterator)...");
+timer.start();
 forall i in guidedDistributed(controlRange) do
   testGuidedDistributedRangeArray[i] = testGuidedDistributedRangeArray[i]+1;
+
+timer.stop();
+writeln("Time: ", timer.elapsed());
+timer.clear();
+
 checkCorrectness(testGuidedDistributedRangeArray,controlRange);
 
 /*

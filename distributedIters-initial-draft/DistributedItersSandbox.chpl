@@ -21,7 +21,7 @@
   This module contains several iterators that can be used to drive a `forall`
   loop by distributing iterations for a range, domain, or array.
 */
-module DistributedIters
+module DistributedItersSandbox
 {
 use DynamicIters;
 
@@ -235,12 +235,11 @@ private proc adaptSplit(ref rangeToSplit:range(?),
                         splitFactor:int,
                         ref itLeft:bool,
                         ref lock:vlock,
-                        splitTail:bool=false)
+                        splitTail:bool=false,
+                        profThreshold:int=1)
 {
   type rType=rangeToSplit.type;
   type lenType=rangeToSplit.length.type;
-
-  const profThreshold=1;
 
   var initialSubrange:rType;
   var totLen, size : lenType;
