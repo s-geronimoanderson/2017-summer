@@ -41,11 +41,6 @@ config param debugDistributedIters:bool=false;
                  ``dataParTasksPerLocale``.
   :type numTasks: `int`
 
-  :arg minChunkSize: The smallest allowable chunk size. Must be >= zero. If
-                     this argument has the value 0, the iterator will use the
-                     input range length divided by ``numLocales``.
-  :type minChunkSize: `int`
-
   :yields: Indices in the range ``c``.
 
   This iterator is equivalent to a distributed version of the guided policy of
@@ -63,8 +58,7 @@ config param debugDistributedIters:bool=false;
 */
 // Serial version.
 iter guidedDistributed(c:range(?),
-                       numTasks:int=0,
-                       minChunkSize:int=0)
+                       numTasks:int=0)
 {
   if debugDistributedIters
   then writeln("Serial guided iterator, working with range ", c);
@@ -76,12 +70,9 @@ iter guidedDistributed(c:range(?),
 pragma "no doc"
 iter guidedDistributed(param tag:iterKind,
                        c:range(?),
-                       numTasks:int=0,
-                       minChunkSize:int=0)
+                       numTasks:int=0)
 where tag == iterKind.leader
 {
-  assert(minChunkSize >= 0, "minChunkSize must be a positive integer");
-
   const iterCount=c.length;
   if iterCount == 0 then halt("The range is empty");
 
@@ -98,9 +89,6 @@ where tag == iterKind.leader
   }
   else
   {
-    const chunkThreshold:int=if minChunkSize == 0
-                             then divceilpos(iterCount, numLocales):int
-                             else minChunkSize;
     const factor=numLocales;
     const masterLocale=here.locale;
     var lock:vlock;
@@ -126,8 +114,7 @@ where tag == iterKind.leader
             localWork=adaptSplit(remain,
                                  factor,
                                  moreWork,
-                                 lock,
-                                 profThreshold=chunkThreshold);
+                                 lock);
             localIterCount=localWork.length;
             if localIterCount == 0 then getMoreWork=false;
           }

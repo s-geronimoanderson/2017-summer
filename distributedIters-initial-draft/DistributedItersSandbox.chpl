@@ -208,6 +208,10 @@ inline proc populateInputTypeInfo(c, ref inputType, ref inputTypeStr)
                      input range length divided by ``numLocales``.
   :type minChunkSize: `int`
 
+  :arg coordinated: Have locale 0 coordinate task distribution only; disallow
+                    it from receiving work. (If true and multi-locale.)
+  :type coordinated: `bool`
+
   :yields: Indices in the range ``c``.
 
   This iterator is equivalent to a distributed version of the guided policy of
@@ -226,7 +230,8 @@ inline proc populateInputTypeInfo(c, ref inputType, ref inputTypeStr)
 // Serial version.
 iter guidedDistributed(c:range(?),
                        numTasks:int=0,
-                       minChunkSize:int=0)
+                       minChunkSize:int=0,
+                       coordinated:bool=false)
 {
   if debugDistributedIters
   then writeln("Serial guided iterator, working with range ", c);
@@ -238,7 +243,8 @@ iter guidedDistributed(c:range(?),
 // Standalone version.
 iter guided(param tag:iterKind,
             c:range(?),
-            numTasks:int=0)
+            numTasks:int=0,
+            coordinated:bool=false)
 where tag == iterKind.standalone
 {
   if debugDistributedIters
@@ -253,7 +259,8 @@ pragma "no doc"
 iter guidedDistributed(param tag:iterKind,
                        c:range(?),
                        numTasks:int=0,
-                       minChunkSize:int=0)
+                       minChunkSize:int=0,
+                       coordinated:bool=false)
 where tag == iterKind.leader
 {
   assert(minChunkSize >= 0, "minChunkSize must be a positive integer");
@@ -277,18 +284,23 @@ where tag == iterKind.leader
     const chunkThreshold:int=if minChunkSize == 0
                              then divceilpos(iterCount, numLocales):int
                              else minChunkSize;
+
+    /*
     const factor=numLocales;
     const masterLocale=here.locale;
     var lock:vlock;
     var moreWork=true;
+    */
 
     coforall L in Locales
     with (ref lock, ref moreWork, ref remain) do
     on L do
     {
-      if L != masterLocale || numLocales == 1
+
+      if (supervised && L != masterLocale) || numLocales == 1
       then
       {
+        /*
 
         var getMoreWork=true;
         var localIterCount:int;
@@ -345,6 +357,7 @@ where tag == iterKind.leader
             }
           }
         }
+        */
       }
     }
   }
@@ -354,6 +367,7 @@ iter guidedDistributed(param tag:iterKind,
                        c:range(?),
                        numTasks:int,
                        minChunkSize:int=0,
+                       coordinated:bool=false,
                        followThis)
 where tag == iterKind.follower
 {

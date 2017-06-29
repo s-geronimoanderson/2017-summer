@@ -16,11 +16,13 @@ config const n:int=1000;
 var controlRange:range=1..n;
 
 // Variations.
+/*
 var controlStridedRange=controlRange by 2;
 var controlCountedRange=controlRange # 5;
 var controlStridedCountedRange=controlStridedRange # 5;
 var controlAlignedRange=controlStridedRange align 1;
 var controlDomain:domain(1)={controlRange};
+*/
 
 /*
   Ranges.
@@ -73,7 +75,7 @@ for i in distributed(testAlignedRange) do {
 /*
   Domains.
 */
-var testDomain:domain(1)=controlDomain;
+//var testDomain:domain(1)=controlDomain;
 /*
 var testEmptyDomain:domain(1);
 const testDomainLiteral={1..n};
@@ -85,7 +87,7 @@ const testBlockDistributedDomain={1..n} dmapped
 */
 
 //Arrays for verifying correctness.
-var testDomainArray:[testDomain] int=0;
+//var testDomainArray:[testDomain] int=0;
 
 /* Benchmarking.
 writeln("Testing a domain...");
@@ -125,7 +127,7 @@ for i in distributed(testBlockDistributedDomain) do {
 /*
   Arrays.
 */
-var testArray:[controlDomain] int=0;
+//var testArray:[controlDomain] int=0;
 
 /* Benchmarking.
 writeln("Testing an array...");
