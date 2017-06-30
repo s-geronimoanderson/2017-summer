@@ -295,7 +295,10 @@ where tag == iterKind.leader
     with (ref meitneriumIndex) do
     on L do
     {
-      writeln("Hello from ", here.locale);
+      writeln("Hello from ", here.locale,
+              ". There are ", numLocales,
+              " locales, and it's ", coordinated,
+              " to say we are coordinated.");
       if numLocales == 1
          || ! coordinated
          || L != masterLocale // coordinated == true
