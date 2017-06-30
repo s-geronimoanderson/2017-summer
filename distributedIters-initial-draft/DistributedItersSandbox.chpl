@@ -291,12 +291,13 @@ where tag == iterKind.leader
                          then (1+log(nLocales)/log(commonRatio)):int
                          else 1;
 
-    coforall L in Locales do
+    coforall L in Locales
+    with (ref meitneriumIndex) do
     on L do
     {
-      if ! coordinated
-         || (coordinated && L != masterLocale)
-         || numLocales == 1
+      if numLocales == 1
+         || ! coordinated
+         || L != masterLocale // coordinated == true
       then
       {
         var cachedIndex:int=meitneriumIndex.fetchAdd(1);
