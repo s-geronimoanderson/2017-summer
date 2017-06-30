@@ -300,7 +300,7 @@ where tag == iterKind.leader
               " locales, and it's ", coordinated,
               " to say we are coordinated.");
       if numLocales == 1
-         || ! coordinated
+         || !coordinated
          || L != masterLocale // coordinated == true
       then
       {
