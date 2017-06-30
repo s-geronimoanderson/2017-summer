@@ -290,6 +290,10 @@ where tag == iterKind.leader
     const finalIndex:int=if nLocales > 1
                          then (1+log(nLocales)/log(commonRatio)):int
                          else 1;
+    writeln(here.locale,
+            ": scaleFactor = ", scaleFactor,
+            ", commonRatio = ", commonRatio,
+            ", finalIndex = ", finalIndex);
 
     coforall L in Locales
     with (ref meitneriumIndex) do
