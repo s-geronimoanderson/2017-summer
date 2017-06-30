@@ -300,18 +300,20 @@ where tag == iterKind.leader
               " locales, and it's ", coordinated,
               " to say we are coordinated.");
       if numLocales == 1
-         || (!coordinated)
+         || !coordinated
          || L != masterLocale // coordinated == true
       then
       {
         var cachedIndex:int=meitneriumIndex.fetchAdd(1);
         var currentLocalIndex,nextLocalIndex:int;
 
+        writeln(here.locale,
+                ": cachedIndex = ", cachedIndex,
+                ", finalIndex = ", finalIndex,
+                ", iterCount = ", iterCount);
+
         while cachedIndex < finalIndex do
         {
-          writeln("cachedIndex = ", cachedIndex,
-                  ", finalIndex = ", finalIndex,
-                  ", iterCount = ", iterCount);
 
           currentLocalIndex=(scaleFactor * (commonRatio ** cachedIndex)):int;
           nextLocalIndex=(scaleFactor * (commonRatio ** (cachedIndex+1))):int;
