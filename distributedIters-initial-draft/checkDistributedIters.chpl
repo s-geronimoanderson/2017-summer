@@ -23,9 +23,9 @@ timer.start();
 forall i in guidedDistributed(controlRange) do
   testGuidedDistributedRangeArray[i] = testGuidedDistributedRangeArray[i]+1;
 
-  timer.stop();
-  writeln("Time: ", timer.elapsed());
-  timer.clear();
+timer.stop();
+writeln("Time: ", timer.elapsed());
+timer.clear();
 
 checkCorrectness(testGuidedDistributedRangeArray,controlRange);
 

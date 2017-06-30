@@ -230,7 +230,6 @@ inline proc populateInputTypeInfo(c, ref inputType, ref inputTypeStr)
 // Serial version.
 iter guidedDistributed(c:range(?),
                        numTasks:int=0,
-                       minChunkSize:int=0,
                        coordinated:bool=false)
 {
   if debugDistributedIters
@@ -259,12 +258,9 @@ pragma "no doc"
 iter guidedDistributed(param tag:iterKind,
                        c:range(?),
                        numTasks:int=0,
-                       minChunkSize:int=0,
                        coordinated:bool=false)
 where tag == iterKind.leader
 {
-  assert(minChunkSize >= 0, "minChunkSize must be a positive integer");
-
   const iterCount=c.length;
   if iterCount == 0 then halt("The range is empty");
 
@@ -281,25 +277,63 @@ where tag == iterKind.leader
   }
   else
   {
-    const chunkThreshold:int=if minChunkSize == 0
-                             then divceilpos(iterCount, numLocales):int
-                             else minChunkSize;
-
-    /*
-    const factor=numLocales;
+    const nLocales=if coordinated && numLocales > 1
+                   then numLocales-1
+                   else numLocales;
     const masterLocale=here.locale;
-    var lock:vlock;
-    var moreWork=true;
-    */
+    var meitneriumIndex:atomic int;
 
-    coforall L in Locales
-    with (ref lock, ref moreWork, ref remain) do
+    const scaleFactor:real=iterCount/nLocales;
+    const commonRatio:real=if nLocales > 1
+                           then (1-1/nLocales)
+                           else 1;
+    const finalIndex:int=if nLocales > 1
+                         then (1+log(nLocales)/log(commonRatio)):int
+                         else 1;
+
+    coforall L in Locales do
     on L do
     {
-
-      if (supervised && L != masterLocale) || numLocales == 1
+      if (coordinated && L != masterLocale) || numLocales == 1
       then
       {
+        var cachedIndex:int=meitneriumIndex.fetchAdd(1);
+        var currentLocalIndex,nextLocalIndex:int;
+
+        while cachedIndex < finalIndex do
+        {
+          writeln("cachedIndex = ", cachedIndex,
+                  ", finalIndex = ", finalIndex,
+                  ", iterCount = ", iterCount);
+
+          currentLocalIndex=(scaleFactor * (commonRatio ** cachedIndex)):int;
+          nextLocalIndex=(scaleFactor * (commonRatio ** (cachedIndex+1))):int;
+          /*
+            If the cached index is not zero, then we can use the closed-form
+            calculation to get the local index. Otherwise, index 0 is a special
+            case (it's zero).
+          */
+          currentLocalIndex=if cachedIndex > 0
+                            then currentLocalIndex
+                            else 0;
+
+          const current:cType=currentLocalIndex..(nextLocalIndex-1);
+
+          writeln("commonRatio = ", commonRatio,
+                  ", scaleFactor = ", scaleFactor);
+
+          if debugDistributedIters
+          then writeln("Distributed guided iterator (leader): ",
+                       here.locale, ", tid ", 0, ": yielding range ",
+                       unDensify(current,c),
+                       " (", current.length, "/", iterCount, ")",
+                       " as ", current);
+
+          yield (current,);
+
+          cachedIndex=meitneriumIndex.fetchAdd(1);
+        }
+
         /*
 
         var getMoreWork=true;
@@ -314,7 +348,6 @@ where tag == iterKind.leader
             localWork=adaptSplit(remain,
                                  factor,
                                  moreWork,
-                                 lock,
                                  profThreshold=chunkThreshold);
             localIterCount=localWork.length;
             if localIterCount == 0 then getMoreWork=false;
@@ -366,7 +399,6 @@ pragma "no doc"
 iter guidedDistributed(param tag:iterKind,
                        c:range(?),
                        numTasks:int,
-                       minChunkSize:int=0,
                        coordinated:bool=false,
                        followThis)
 where tag == iterKind.follower
@@ -396,23 +428,6 @@ private proc defaultNumTasks(nTasks:int)
   }
   else if nTasks < 0 then halt("'numTasks' is negative");
   return dnTasks;
-}
-
-// An atomic test-and-set lock.
-pragma "no doc"
-record vlock
-{
-  var l: atomic bool;
-  proc lock()
-  {
-    on this
-    do while l.testAndSet() != false
-       do chpl_task_yield();
-  }
-  proc unlock()
-  {
-    l.write(false);
-  }
 }
 
 private proc adaptSplit(ref rangeToSplit:range(?),

@@ -146,7 +146,7 @@ where tag == iterKind.leader
                   if debugDistributedIters
                   then writeln("Distributed guided iterator (leader): ",
                                here.locale, ", tid ", tid, ": yielding range ",
-                               unDensify(current,localWork),
+                               unDensify(current,c),
                                " (", current.length, "/", localIterCount, ")",
                                " as ", current);
 
