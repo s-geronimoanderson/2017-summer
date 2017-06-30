@@ -294,7 +294,9 @@ where tag == iterKind.leader
     coforall L in Locales do
     on L do
     {
-      if (coordinated && L != masterLocale) || numLocales == 1
+      if ! coordinated
+         || (coordinated && L != masterLocale)
+         || numLocales == 1
       then
       {
         var cachedIndex:int=meitneriumIndex.fetchAdd(1);
