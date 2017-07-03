@@ -287,13 +287,10 @@ where tag == iterKind.leader
     const commonRatio:real=if nLocales > 1
                            then (1-1/nLocales)
                            else 1;
-    const finalIndex:int=if nLocales > 1
-                         then (1+log(nLocales)/log(commonRatio)):int
-                         else 1;
     writeln(here.locale,
             ": scaleFactor = ", scaleFactor,
             ", commonRatio = ", commonRatio,
-            ", finalIndex = ", finalIndex);
+            ", iterCount = ", iterCount);
 
     coforall L in Locales
     with (ref meitneriumIndex) do
@@ -308,32 +305,36 @@ where tag == iterKind.leader
          || L != masterLocale // coordinated == true
       then
       {
-        var cachedIndex:int=meitneriumIndex.fetchAdd(1);
-        var currentLocalIndex,nextLocalIndex:int;
+        var currentIndex:int=meitneriumIndex.fetchAdd(1);
+        var currentLocalIndex,currentLocalCount:int;
+        var commonRatioToTheCurrentIndex:int=(commonRatio ** currentIndex);
 
         writeln(here.locale,
-                ": cachedIndex = ", cachedIndex,
-                ", finalIndex = ", finalIndex,
-                ", iterCount = ", iterCount);
+                ": currentIndex = ", currentIndex,
+                ", iterCount = ", iterCount,
+                ", commonRatioToTheCurrentIndex = ",
+                commonRatioToTheCurrentIndex);
 
-        while cachedIndex < finalIndex do
+        while currentIndex < iterCount do
         {
-
-          currentLocalIndex=(scaleFactor * (commonRatio ** cachedIndex)):int;
-          nextLocalIndex=(scaleFactor * (commonRatio ** (cachedIndex+1))):int;
           /*
             If the cached index is not zero, then we can use the closed-form
             calculation to get the local index. Otherwise, index 0 is a special
             case (it's zero).
           */
-          currentLocalIndex=if cachedIndex > 0
+          currentLocalIndex=(iterCount * (1-commonRatioToTheCurrentIndex)):int;
+          currentLocalIndex=if currentIndex > 0
                             then currentLocalIndex
                             else 0;
+          /*
+            A range should include at least one element.
+          */
+          currentLocalCount=(scaleFactor * commonRatioToTheCurrentIndex):int;
+          currentLocalCount=if currentLocalCount >= 1
+                            then currentLocalCount
+                            else 1;
 
-          const current:cType=currentLocalIndex..(nextLocalIndex-1);
-
-          writeln("commonRatio = ", commonRatio,
-                  ", scaleFactor = ", scaleFactor);
+          const current:cType=currentLocalIndex..#currentLocalCount;
 
           if debugDistributedIters
           then writeln("Distributed guided iterator (leader): ",
@@ -343,8 +344,7 @@ where tag == iterKind.leader
                        " as ", current);
 
           yield (current,);
-
-          cachedIndex=meitneriumIndex.fetchAdd(1);
+          currentIndex=meitneriumIndex.fetchAdd(1);
         }
 
         /*
