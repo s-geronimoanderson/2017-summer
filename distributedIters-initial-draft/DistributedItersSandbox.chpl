@@ -288,7 +288,8 @@ where tag == iterKind.leader
                            then (1-1/nLocales)
                            else 1;
     const finalIndex:int=if nLocales > 1
-                         then (1+log(nLocales)/log(commonRatio)):int
+                         then (log(1 - iterCount*(1-commonRatio)/scaleFactor)
+                               /log(commonRatio)):int
                          else 1;
     writeln(here.locale,
             ": scaleFactor = ", scaleFactor,
