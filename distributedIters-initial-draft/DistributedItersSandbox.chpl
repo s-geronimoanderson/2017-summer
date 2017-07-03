@@ -287,18 +287,23 @@ where tag == iterKind.leader
     const commonRatio:real=if nLocales > 1
                            then (1-1/nLocales)
                            else 1;
+    const finalIndex:int=if nLocales > 1
+                         then (1+log(nLocales)/log(commonRatio)):int
+                         else 1;
     writeln(here.locale,
             ": scaleFactor = ", scaleFactor,
             ", commonRatio = ", commonRatio,
-            ", iterCount = ", iterCount);
+            ", finalIndex = ", finalIndex);
 
     coforall L in Locales
     with (ref meitneriumIndex) do
     on L do
     {
       writeln("Hello from ", here.locale,
-              ". There are ", numLocales,
-              " locales, and it's ", coordinated,
+              ". There ", (if numLocales > 1 then "are " else "is "),
+              numLocales,
+              (if numLocales > 1 then " locales" else " locale"),
+              ", and it's ", coordinated,
               " to say we are coordinated.");
       if numLocales == 1
          || !coordinated
@@ -307,7 +312,7 @@ where tag == iterKind.leader
       {
         var currentIndex:int=meitneriumIndex.fetchAdd(1);
         var currentLocalIndex,currentLocalCount:int;
-        var commonRatioToTheCurrentIndex:int=(commonRatio ** currentIndex);
+        var commonRatioToTheCurrentIndex:real=(commonRatio ** currentIndex);
 
         writeln(here.locale,
                 ": currentIndex = ", currentIndex,
@@ -315,7 +320,7 @@ where tag == iterKind.leader
                 ", commonRatioToTheCurrentIndex = ",
                 commonRatioToTheCurrentIndex);
 
-        while currentIndex < iterCount do
+        while currentIndex < finalIndex do
         {
           /*
             If the cached index is not zero, then we can use the closed-form
