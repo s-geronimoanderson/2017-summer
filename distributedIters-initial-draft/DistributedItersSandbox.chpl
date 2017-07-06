@@ -347,7 +347,7 @@ where tag == iterKind.leader
         // Inter-locale phase two.
         if nLocales > 1 then
         {
-          currentLocalIndex=(iterCount-here.id-1);
+          currentLocalIndex=(iterCount-here.id);
           const current:cType=currentLocalIndex..currentLocalIndex;
 
           if debugDistributedIters
