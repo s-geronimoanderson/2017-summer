@@ -53,7 +53,7 @@ timer.clear();
 
 checkCorrectness(testGuidedDistributedRangeArray,controlRange);
 
-const totalWork:int=100;
+const totalWork:int=n;
 const processorCount:int=4;
 
 const scaleFactor:real=totalWork:real/processorCount:real;
