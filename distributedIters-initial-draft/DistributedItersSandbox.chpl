@@ -283,64 +283,54 @@ where tag == iterKind.leader
     const masterLocale=here.locale;
     var meitneriumIndex:atomic int;
 
-    const scaleFactor:real=iterCount/nLocales;
-    const commonRatio:real=if nLocales > 1
-                           then (1-1/nLocales)
-                           else 1;
-    const finalIndex:int=if nLocales > 1
-                         then (log(1 - iterCount*(1-commonRatio)/scaleFactor)
-                               /log(commonRatio)):int
-                         else 1;
-    writeln(here.locale,
-            ": scaleFactor = ", scaleFactor,
+    const scaleFactor:real=iterCount:real/nLocales:real;
+    const commonRatio:real=(1.0 - 1.0/nLocales:real);
+    /*
+      The cutoffIndex is the last meitneriumIndex at which the difference
+      between locally-computed indices is at least one. For one locale we want
+      everything to go to parallel tasks, so we make the cutoff the first
+      index (zero). (Besides, commonRatio will be zero if nLocales = 1, so
+      its log is undefined.)
+    */
+    const cutoffIndex:int=if nLocales > 1
+                          then (log(nLocales:real/iterCount:real)
+                                / log(commonRatio)):int
+                          else 0;
+    const cutoffLocalIndex:int=if nLocales > 1
+                               then (iterCount:real
+                                     * (1.0
+                                        - commonRatio ** cutoffIndex)):int
+                               else iterCount;
+
+    writeln("iterCount = ", iterCount,
+            ", nLocales = ", nLocales,
+            ", nLocales / iterCount = ", (nLocales:real/iterCount:real));
+    writeln("scaleFactor = ", scaleFactor,
             ", commonRatio = ", commonRatio,
-            ", finalIndex = ", finalIndex);
+            ", cutoff = ", cutoffIndex,
+            ", last = ", cutoffLocalIndex);
 
     coforall L in Locales
     with (ref meitneriumIndex) do
     on L do
     {
-      writeln("Hello from ", here.locale,
-              ". There ", (if numLocales > 1 then "are " else "is "),
-              numLocales,
-              (if numLocales > 1 then " locales" else " locale"),
-              ", and it's ", coordinated,
-              " to say we are coordinated.");
       if numLocales == 1
          || !coordinated
          || L != masterLocale // coordinated == true
       then
       {
         var currentIndex:int=meitneriumIndex.fetchAdd(1);
-        var currentLocalIndex,currentLocalCount:int;
-        var commonRatioToTheCurrentIndex:real=(commonRatio ** currentIndex);
+        var currentLocalIndex,nextLocalIndex:int;
 
-        writeln(here.locale,
-                ": currentIndex = ", currentIndex,
-                ", iterCount = ", iterCount,
-                ", commonRatioToTheCurrentIndex = ",
-                commonRatioToTheCurrentIndex);
-
-        while currentIndex < finalIndex do
+        while currentIndex <= cutoffIndex do
         {
-          /*
-            If the cached index is not zero, then we can use the closed-form
-            calculation to get the local index. Otherwise, index 0 is a special
-            case (it's zero).
-          */
-          currentLocalIndex=(iterCount * (1-commonRatioToTheCurrentIndex)):int;
-          currentLocalIndex=if currentIndex > 0
-                            then currentLocalIndex
-                            else 0;
-          /*
-            A range should include at least one element.
-          */
-          currentLocalCount=(scaleFactor * commonRatioToTheCurrentIndex):int;
-          currentLocalCount=if currentLocalCount >= 1
-                            then currentLocalCount
-                            else 1;
-
-          const current:cType=currentLocalIndex..#currentLocalCount;
+          currentLocalIndex=(iterCount
+                             * (1.0
+                                - (commonRatio ** currentIndex))):int;
+          nextLocalIndex=(iterCount
+                          * (1.0
+                             - (commonRatio ** (1+currentIndex)))):int;
+          const current:cType=currentLocalIndex..(nextLocalIndex-1);
 
           if debugDistributedIters
           then writeln("Distributed guided iterator (leader): ",
@@ -351,6 +341,22 @@ where tag == iterKind.leader
 
           yield (current,);
           currentIndex=meitneriumIndex.fetchAdd(1);
+        }
+
+        currentLocalIndex=(cutoffLocalIndex + (currentIndex - cutoffIndex));
+        while currentLocalIndex < iterCount {
+          const current:cType=currentLocalIndex..currentLocalIndex;
+
+          if debugDistributedIters
+          then writeln("Distributed guided iterator (leader): ",
+                       here.locale, ", tid ", 0, ": yielding range ",
+                       unDensify(current,c),
+                       " (", current.length, "/", iterCount, ")",
+                       " as ", current);
+
+          yield (current,);
+          currentIndex=meitneriumIndex.fetchAdd(1);
+          currentLocalIndex=(cutoffLocalIndex + (currentIndex - cutoffIndex));
         }
 
         /*

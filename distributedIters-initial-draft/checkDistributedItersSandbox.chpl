@@ -4,6 +4,7 @@
 */
 use BlockDist,
     DistributedItersSandbox,
+    Math,
     Time;
 
 var timer:Timer;
@@ -48,7 +49,71 @@ timer.stop();
 writeln("Time: ", timer.elapsed());
 timer.clear();
 
-checkCorrectness(testGuidedDistributedRangeArray,controlRange);
+//checkCorrectness(testGuidedDistributedRangeArray,controlRange);
+
+const totalWork:int=100;
+const processorCount:int=4;
+
+const scaleFactor:real=totalWork:real/processorCount:real;
+const commonRatio:real=(1.0 - 1.0/processorCount:real);
+const cutoffGlobalCount:int=(log(processorCount:real/totalWork:real)
+                             / log(commonRatio)):int;
+const lastKnownGoodLocalIndex:int=(totalWork:real
+                                   * (1.0
+                                      - commonRatio ** cutoffGlobalCount)):int;
+writeln("totalWork = ", totalWork,
+        ", processorCount = ", processorCount,
+        ", processorCount / totalWork = ", (processorCount:real/totalWork:real));
+writeln("scaleFactor = ", scaleFactor,
+        ", commonRatio = ", commonRatio,
+        ", cutoff = ", cutoffGlobalCount,
+        ", last = ", lastKnownGoodLocalIndex);
+
+var commonRatioToTheCurrentIndex:real;
+var globalCount:int=0;
+var localIndex,localCount:real;
+var nextCommonRatioToTheN:real;
+var nextLocalIndex,newLocalCount:real;
+
+var i,currentIndex:int=0;
+
+// Start.
+currentIndex=globalCount;
+globalCount += 1;
+
+while currentIndex <= cutoffGlobalCount do
+{
+  commonRatioToTheCurrentIndex = commonRatio**currentIndex;
+  localIndex = totalWork * (1.0 - commonRatioToTheCurrentIndex);
+  nextCommonRatioToTheN = commonRatio**(currentIndex+1);
+  nextLocalIndex = totalWork * (1.0 - nextCommonRatioToTheN);
+  newLocalCount = nextLocalIndex - localIndex;
+  writeln(currentIndex, ": localIndex = ", localIndex,
+          " (", localIndex:int,
+          "), next = ", nextLocalIndex,
+          " (", nextLocalIndex:int,
+          "), newCount = ", newLocalCount,
+          " (", newLocalCount:int,
+          "), yielding ", localIndex:int..nextLocalIndex:int-1);
+  currentIndex=globalCount;
+  globalCount += 1;
+}
+writeln("globalCount = ", globalCount);
+writeln("Burning up the rest of the range...");
+
+localIndex = lastKnownGoodLocalIndex + (currentIndex-cutoffGlobalCount);
+
+while localIndex < totalWork do
+{
+  writeln(currentIndex, ": localIndex = ", localIndex,
+          " (", localIndex:int,
+          "), next = ", localIndex+1,
+          " (", localIndex+1:int,
+          "), yielding ", localIndex:int..localIndex:int);
+  currentIndex=globalCount;
+  globalCount += 1;
+  localIndex = lastKnownGoodLocalIndex + (currentIndex-cutoffGlobalCount);
+}
 
 /*
 writeln("Testing a strided range...");
