@@ -350,7 +350,7 @@ where tag == iterKind.leader
           const cutoffIndex:int=(log(nLocales:real/iterCount:real)
                                  / log(commonRatio)):int;
 
-          currentLocalIndex=(cutoffBase + (currentIndex - cutoffIndex));
+          currentLocalIndex=(cutoffBase + (currentIndex - cutoffIndex - 1));
           const current:cType=currentLocalIndex..currentLocalIndex;
 
           if debugDistributedIters
