@@ -345,6 +345,22 @@ where tag == iterKind.leader
         }
 
         // Inter-locale phase two.
+        if nLocales > 1 then
+        {
+          currentLocalIndex=(iterCount-here.id-1);
+          const current:cType=currentLocalIndex..currentLocalIndex;
+
+          if debugDistributedIters
+          then writeln("Distributed guided iterator (leader): ",
+                       here.locale, ", tid ", 0, ": yielding range ",
+                       unDensify(current,c),
+                       " (", current.length, "/", iterCount, ")",
+                       " as ", current);
+
+          yield (current,);
+        }
+
+        /*
         const cutoffIndex:int=currentIndex;
         currentLocalIndex=(cutoffBase + (currentIndex - cutoffIndex));
         while currentLocalIndex < iterCount {
@@ -361,6 +377,7 @@ where tag == iterKind.leader
           currentIndex=meitneriumIndex.fetchAdd(1);
           currentLocalIndex=(cutoffBase + (currentIndex - cutoffIndex));
         }
+        */
 
         /*
 
