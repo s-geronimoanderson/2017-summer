@@ -13,7 +13,9 @@ var timer:Timer;
   Control variables. These determine the test variables (defined later) and
   provide control for checking correctness.
 */
+config const coordinated:bool=false;
 config const n:int=1000;
+
 var controlRange:range=1..n;
 
 // Variations.
@@ -42,7 +44,7 @@ var testGuidedDistributedRangeArray:[controlRange] int=0;
 
 writeln("Testing a range (distributed guided iterator)...");
 timer.start();
-forall i in guidedDistributed(controlRange) do
+forall i in guidedDistributed(controlRange, coordinated=coordinated) do
   testGuidedDistributedRangeArray[i] = testGuidedDistributedRangeArray[i]+1;
 
 timer.stop();
