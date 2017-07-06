@@ -302,13 +302,16 @@ where tag == iterKind.leader
                                         - commonRatio ** cutoffIndex)):int
                                else iterCount;
 
-    writeln("iterCount = ", iterCount,
-            ", nLocales = ", nLocales,
-            ", nLocales / iterCount = ", (nLocales:real/iterCount:real));
-    writeln("scaleFactor = ", scaleFactor,
-            ", commonRatio = ", commonRatio,
-            ", cutoff = ", cutoffIndex,
-            ", last = ", cutoffLocalIndex);
+    if debugDistributedIters then
+    {
+      writeln("iterCount = ", iterCount,
+              ", nLocales = ", nLocales,
+              ", nLocales / iterCount = ", (nLocales:real/iterCount:real));
+      writeln("scaleFactor = ", scaleFactor,
+              ", commonRatio = ", commonRatio,
+              ", cutoff = ", cutoffIndex,
+              ", last = ", cutoffLocalIndex);
+    }
 
     coforall L in Locales
     with (ref meitneriumIndex) do

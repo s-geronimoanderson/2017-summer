@@ -49,7 +49,7 @@ timer.stop();
 writeln("Time: ", timer.elapsed());
 timer.clear();
 
-//checkCorrectness(testGuidedDistributedRangeArray,controlRange);
+checkCorrectness(testGuidedDistributedRangeArray,controlRange);
 
 const totalWork:int=100;
 const processorCount:int=4;
