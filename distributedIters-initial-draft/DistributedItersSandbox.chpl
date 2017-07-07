@@ -262,10 +262,11 @@ iter guidedDistributed(param tag:iterKind,
 where tag == iterKind.leader
 {
   const iterCount=c.length;
+
   if iterCount == 0 then halt("The range is empty");
 
   type cType=c.type;
-  var remain:cType=densify(c,c);
+  var denseRange:cType=densify(c,c);
 
   if iterCount == 1 || numTasks == 1 && numLocales == 1
   then
@@ -273,33 +274,19 @@ where tag == iterKind.leader
     if debugDistributedIters
     then writeln("Distributed guided iterator: serial execution due to ",
                  "insufficient work or compute resources");
-    yield (remain,);
+    yield (denseRange,);
   }
   else
   {
     const masterLocale=here.locale;
-
-    // Getting ready for inter-locale parallelism.
     const nLocales=if coordinated && numLocales > 1
                    then numLocales-1
                    else numLocales;
-    const commonRatio:real=(1.0 - 1.0/nLocales:real);
-    /*
-        The cutoffBase is the last index at which the difference between
-        locally-computed indices is at least one. For one locale we want
-        everything to go to parallel tasks, so we make the cutoffBase the
-        last index (iterCount).
-    */
-    const cutoffBase:int=if nLocales > 1
-                         then (iterCount - nLocales)
-                         else iterCount;
     var meitneriumIndex:atomic int;
 
     if debugDistributedIters
     then writeln("iterCount = ", iterCount,
-                 ", nLocales = ", nLocales,
-                 ", commonRatio = ", commonRatio,
-                 ", cutoffBase = ", cutoffBase);
+                 ", nLocales = ", nLocales);
 
     coforall L in Locales
     with (ref meitneriumIndex) do
@@ -310,135 +297,24 @@ where tag == iterKind.leader
          || L != masterLocale // coordinated == true
       then
       {
-        var currentIndex:int=meitneriumIndex.fetchAdd(1);
-        var currentLocalIndex:int=(iterCount
-                                   * (1.0
-                                      - (commonRatio ** currentIndex))):int;
-        var nextLocalIndex:int=(iterCount
-                                * (1.0
-                                   - (commonRatio ** (1+currentIndex)))):int;
-
-        // Inter-locale phase one.
-        while currentLocalIndex < cutoffBase do
+        var localeStage:int=meitneriumIndex.fetchAdd(1);
+        var localeRange:cType = guidedSubrange(denseRange,
+                                               nLocales,
+                                               localeStage);
+        while localeRange.low < iterCount do
         {
-
-          // Getting ready for intra-locale parallelism.
-          const current:cType=currentLocalIndex..(nextLocalIndex-1);
-
           if debugDistributedIters
           then writeln("Distributed guided iterator (leader): ",
                        here.locale, ", tid ", 0, ": yielding range ",
-                       unDensify(current,c),
-                       " (", current.length, "/", iterCount, ")",
-                       " as ", current);
+                       unDensify(localeRange,c),
+                       " (", localeRange.length, "/", iterCount, ")",
+                       " as ", localeRange);
 
-          yield (current,);
-          // End intra-locale parallelism.
+          yield (localeRange,);
 
-          currentIndex=meitneriumIndex.fetchAdd(1);
-          currentLocalIndex=(iterCount
-                             * (1.0
-                                - (commonRatio ** currentIndex))):int;
-          nextLocalIndex=(iterCount
-                          * (1.0
-                             - (commonRatio ** (1+currentIndex)))):int;
+          localeStage = meitneriumIndex.fetchAdd(1);
+          localeRange = guidedSubrange(denseRange, nLocales, localeStage);
         }
-
-        // Inter-locale phase two.
-        if nLocales > 1 then
-        {
-          const cutoffIndex:int=(log(nLocales:real/iterCount:real)
-                                 / log(commonRatio)):int;
-
-          currentLocalIndex=(cutoffBase + (currentIndex - cutoffIndex - 1));
-          const current:cType=currentLocalIndex..currentLocalIndex;
-
-          if debugDistributedIters
-          then writeln("Distributed guided iterator (leader): ",
-                       here.locale, ", tid ", 0, ": yielding range ",
-                       unDensify(current,c),
-                       " (", current.length, "/", iterCount, ")",
-                       " as ", current);
-
-          yield (current,);
-        }
-
-        /*
-        const cutoffIndex:int=currentIndex;
-        currentLocalIndex=(cutoffBase + (currentIndex - cutoffIndex));
-        while currentLocalIndex < iterCount {
-          const current:cType=currentLocalIndex..currentLocalIndex;
-
-          if debugDistributedIters
-          then writeln("Distributed guided iterator (leader): ",
-                       here.locale, ", tid ", 0, ": yielding range ",
-                       unDensify(current,c),
-                       " (", current.length, "/", iterCount, ")",
-                       " as ", current);
-
-          yield (current,);
-          currentIndex=meitneriumIndex.fetchAdd(1);
-          currentLocalIndex=(cutoffBase + (currentIndex - cutoffIndex));
-        }
-        */
-
-        /*
-
-        var getMoreWork=true;
-        var localIterCount:int;
-        var localWork:cType;
-
-        while getMoreWork do
-        {
-          if moreWork
-          then
-          {
-            localWork=adaptSplit(remain,
-                                 factor,
-                                 moreWork,
-                                 profThreshold=chunkThreshold);
-            localIterCount=localWork.length;
-            if localIterCount == 0 then getMoreWork=false;
-          }
-          else getMoreWork=false;
-
-          if getMoreWork then
-          {
-            const nTasks=min(localIterCount, defaultNumTasks(numTasks));
-            const localFactor=nTasks;
-
-            // TODO: Why if we define these just after "if L != masterLocale
-            // ..." do we get an erroneous iteration?
-            var localLock:vlock;
-            var moreLocalWork=true;
-
-            // TODO: Can we simply employ the single-locale guided iterator
-            // here? (Tried once and failed correctness test.)
-            coforall tid in 0..#nTasks
-            with (ref localLock, ref localWork, ref moreLocalWork) do
-            {
-              while moreLocalWork do
-              {
-                const current:cType=adaptSplit(localWork,
-                                               localFactor,
-                                               moreLocalWork,
-                                               localLock);
-                if current.length != 0 then
-                {
-                  if debugDistributedIters
-                  then writeln("Distributed guided iterator (leader): ",
-                               here.locale, ", tid ", tid, ": yielding range ",
-                               unDensify(current,localWork),
-                               " (", current.length, "/", localIterCount, ")",
-                               " as ", current);
-
-                  yield (current,);
-                }
-              }
-            }
-          }
-        }
-        */
       }
     }
   }
@@ -463,6 +339,47 @@ where tag == iterKind.follower
 }
 
 // Helpers.
+
+private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
+/*
+  range(?) * int * int -> range(?)
+
+  :arg c: The range from which to retrieve a guided subrange.
+  :type c: `range(?)`
+
+  :arg workerCount: The number of workers (locales, tasks) to assume are
+                    working on ``c``. This (along with stage) determines the
+                    subrange length.
+  :type workerCount: `int`
+
+  :arg stage: The number of guided subranges to skip before returning a guided
+              subrange.
+  :type stage: `int`
+
+  :returns: A subrange of ``c``.
+
+  This function takes a range, a worker count, and a stage, and simulates
+  performing OpenMP's guided schedule on the range with the given worker count
+  until reaching the given stage. It then returns the subrange that the guided
+  schedule would have produced at that point.
+*/
+{
+  const cLength = c.length;
+  var low:int = 0;
+  var chunkSize:int = cLength / workerCount;
+  var remainder:int = cLength - chunkSize;
+  for unused in 1..stage do
+  {
+    low += chunkSize;
+    chunkSize = remainder / workerCount;
+    chunkSize = if chunkSize >= 1
+                then chunkSize
+                else 1;
+    remainder -= chunkSize;
+  }
+  const subrange:c.type = low..#chunkSize;
+  return subrange;
+}
 
 private proc defaultNumTasks(nTasks:int)
 {

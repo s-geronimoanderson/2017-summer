@@ -51,70 +51,137 @@ timer.stop();
 writeln("Time: ", timer.elapsed());
 timer.clear();
 
-checkCorrectness(testGuidedDistributedRangeArray,controlRange);
+//checkCorrectness(testGuidedDistributedRangeArray,controlRange);
 
-const totalWork:int=n;
-const processorCount:int=4;
+recreationVersion(n);
 
-const scaleFactor:real=totalWork:real/processorCount:real;
-const commonRatio:real=(1.0 - 1.0/processorCount:real);
-const cutoffGlobalCount:int=(log(processorCount:real/totalWork:real)
-                             / log(commonRatio)):int;
-const lastKnownGoodLocalIndex:int=(totalWork:real
-                                   * (1.0
-                                      - commonRatio ** cutoffGlobalCount)):int;
-writeln("totalWork = ", totalWork,
-        ", processorCount = ", processorCount,
-        ", processorCount / totalWork = ", (processorCount:real/totalWork:real));
-writeln("scaleFactor = ", scaleFactor,
-        ", commonRatio = ", commonRatio,
-        ", cutoff = ", cutoffGlobalCount,
-        ", last = ", lastKnownGoodLocalIndex);
-
-var commonRatioToTheCurrentIndex:real;
-var globalCount:int=0;
-var localIndex,localCount:real;
-var nextCommonRatioToTheN:real;
-var nextLocalIndex,newLocalCount:real;
-
-var i,currentIndex:int=0;
-
-// Start.
-currentIndex=globalCount;
-globalCount += 1;
-
-while currentIndex <= cutoffGlobalCount do
+proc recreationVersion(totalWork:int=n, processorCount:int=4)
+/*
+  Range recreation version, O(lg^2(n) * lg^2(lg(n))) serial time complexity.
+  Possible iteration errors due to computer arithmetic.
+*/
 {
-  commonRatioToTheCurrentIndex = commonRatio**currentIndex;
-  localIndex = totalWork * (1.0 - commonRatioToTheCurrentIndex);
-  nextCommonRatioToTheN = commonRatio**(currentIndex+1);
-  nextLocalIndex = totalWork * (1.0 - nextCommonRatioToTheN);
-  newLocalCount = nextLocalIndex - localIndex;
-  writeln(currentIndex, ": localIndex = ", localIndex,
-          " (", localIndex:int,
-          "), next = ", nextLocalIndex,
-          " (", nextLocalIndex:int,
-          "), newCount = ", newLocalCount,
-          " (", newLocalCount:int,
-          "), yielding ", localIndex:int..nextLocalIndex:int-1);
-  currentIndex=globalCount;
-  globalCount += 1;
+  const denseRange:range = 0..#n;
+  var myAtomic:atomic int;
+
+  var current = myAtomic.fetchAdd(1);
+  var myRange = guidedSubrange(denseRange, processorCount, current);
+
+  while myRange.low < denseRange.length do
+  {
+    writeln("yielding ", myRange);
+    current = myAtomic.fetchAdd(1);
+    myRange = guidedSubrange(denseRange, processorCount, current);
+  }
 }
-writeln("globalCount = ", globalCount);
-writeln("Burning up the rest of the range...");
 
-localIndex = lastKnownGoodLocalIndex + (currentIndex-cutoffGlobalCount);
+proc guidedSubrange(c:range(?), workerCount:int, stage:int)
+/*
+  range(?) * int * int -> range(?)
 
-while localIndex < totalWork do
+  :arg c: The range from which to retrieve a guided subrange.
+  :type c: `range(?)`
+
+  :arg workerCount: The number of workers (locales, tasks) to assume are
+                    working on ``c``. This (along with stage) determines the
+                    subrange length.
+  :type workerCount: `int`
+
+  :arg stage: The number of guided subranges to skip before returning a guided
+              subrange.
+  :type stage: `int`
+
+  :returns: A subrange of ``c``.
+
+  This function takes a range, a worker count, and a stage, and simulates
+  performing OpenMP's guided schedule on the range with the given worker count
+  until reaching the given stage. It then returns the subrange that the guided
+  schedule would have produced at that point.
+*/
 {
-  writeln(currentIndex, ": localIndex = ", localIndex,
-          " (", localIndex:int,
-          "), next = ", localIndex+1,
-          " (", localIndex+1:int,
-          "), yielding ", localIndex:int..localIndex:int);
+  const cLength = c.length;
+  var low:int = 0;
+  var chunkSize:int = cLength / workerCount;
+  var remainder:int = cLength - chunkSize;
+  for unused in 1..stage do
+  {
+    low += chunkSize;
+    chunkSize = remainder / workerCount;
+    chunkSize = if chunkSize >= 1
+                then chunkSize
+                else 1;
+    remainder -= chunkSize;
+  }
+  const subrange:c.type = low..#chunkSize;
+  return subrange;
+}
+
+proc geometricVersion(totalWork:int=n, processorCount:int=4)
+/*
+  Geometric version, O(lg n) serial time complexity.
+  Possible iteration errors due to computer arithmetic.
+*/
+{
+  const scaleFactor:real=totalWork:real/processorCount:real;
+  const commonRatio:real=(1.0 - 1.0/processorCount:real);
+  const cutoffGlobalCount:int=(log(processorCount:real/totalWork:real)
+                               / log(commonRatio)):int;
+  const lastKnownGoodLocalIndex:int=(totalWork:real
+                                     * (1.0
+                                        - commonRatio ** cutoffGlobalCount)):int;
+  writeln("totalWork = ", totalWork,
+          ", processorCount = ", processorCount,
+          ", processorCount / totalWork = ", (processorCount:real/totalWork:real));
+  writeln("scaleFactor = ", scaleFactor,
+          ", commonRatio = ", commonRatio,
+          ", cutoff = ", cutoffGlobalCount,
+          ", last = ", lastKnownGoodLocalIndex);
+
+  var commonRatioToTheCurrentIndex:real;
+  var globalCount:int=0;
+  var localIndex,localCount:real;
+  var nextCommonRatioToTheN:real;
+  var nextLocalIndex,newLocalCount:real;
+
+  var i,currentIndex:int=0;
+
+  // Start.
   currentIndex=globalCount;
   globalCount += 1;
+
+  while currentIndex <= cutoffGlobalCount do
+  {
+    commonRatioToTheCurrentIndex = commonRatio**currentIndex;
+    localIndex = totalWork * (1.0 - commonRatioToTheCurrentIndex);
+    nextCommonRatioToTheN = commonRatio**(currentIndex+1);
+    nextLocalIndex = totalWork * (1.0 - nextCommonRatioToTheN);
+    newLocalCount = nextLocalIndex - localIndex;
+    writeln(currentIndex, ": localIndex = ", localIndex,
+            " (", localIndex:int,
+            "), next = ", nextLocalIndex,
+            " (", nextLocalIndex:int,
+            "), newCount = ", newLocalCount,
+            " (", newLocalCount:int,
+            "), yielding ", localIndex:int..nextLocalIndex:int-1);
+    currentIndex=globalCount;
+    globalCount += 1;
+  }
+  writeln("globalCount = ", globalCount);
+  writeln("Burning up the rest of the range...");
+
   localIndex = lastKnownGoodLocalIndex + (currentIndex-cutoffGlobalCount);
+
+  while localIndex < totalWork do
+  {
+    writeln(currentIndex, ": localIndex = ", localIndex,
+            " (", localIndex:int,
+            "), next = ", localIndex+1,
+            " (", localIndex+1:int,
+            "), yielding ", localIndex:int..localIndex:int);
+    currentIndex=globalCount;
+    globalCount += 1;
+    localIndex = lastKnownGoodLocalIndex + (currentIndex-cutoffGlobalCount);
+  }
 }
 
 /*
