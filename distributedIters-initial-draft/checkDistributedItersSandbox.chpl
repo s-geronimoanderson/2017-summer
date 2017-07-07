@@ -15,6 +15,7 @@ var timer:Timer;
 */
 config const coordinated:bool=false;
 config const n:int=1000;
+config const numTasks:int=0;
 
 var controlRange:range=1..n;
 
@@ -44,7 +45,9 @@ var testGuidedDistributedRangeArray:[controlRange] int=0;
 
 writeln("Testing a range (distributed guided iterator)...");
 timer.start();
-forall i in guidedDistributed(controlRange, coordinated=coordinated) do
+forall i in guidedDistributed(controlRange,
+                              coordinated=coordinated,
+                              numTasks=numTasks) do
   testGuidedDistributedRangeArray[i] = testGuidedDistributedRangeArray[i]+1;
 
 timer.stop();
