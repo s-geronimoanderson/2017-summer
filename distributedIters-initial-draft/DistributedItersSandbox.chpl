@@ -387,7 +387,7 @@ private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
 */
 {
   const cLength = c.length;
-  var low:int = 0;
+  var low:int = c.low;
   var chunkSize:int = cLength / workerCount;
   var remainder:int = cLength - chunkSize;
   for unused in 1..stage do
