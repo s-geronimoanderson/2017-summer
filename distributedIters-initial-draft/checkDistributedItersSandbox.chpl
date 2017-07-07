@@ -51,9 +51,9 @@ timer.stop();
 writeln("Time: ", timer.elapsed());
 timer.clear();
 
-//checkCorrectness(testGuidedDistributedRangeArray,controlRange);
+checkCorrectness(testGuidedDistributedRangeArray,controlRange);
 
-recreationVersion(n);
+//recreationVersion(n);
 
 proc recreationVersion(totalWork:int=n, processorCount:int=4)
 /*
