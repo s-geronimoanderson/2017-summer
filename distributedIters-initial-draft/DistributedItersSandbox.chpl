@@ -266,7 +266,7 @@ where tag == iterKind.leader
   if iterCount == 0 then halt("The range is empty");
 
   type cType=c.type;
-  var denseRange:cType=densify(c,c);
+  const denseRange:cType=densify(c,c);
 
   if iterCount == 1 || numTasks == 1 && numLocales == 1
   then
@@ -297,21 +297,43 @@ where tag == iterKind.leader
          || L != masterLocale // coordinated == true
       then
       {
-        var localeStage:int=meitneriumIndex.fetchAdd(1);
+        var localeStage:int = meitneriumIndex.fetchAdd(1);
         var localeRange:cType = guidedSubrange(denseRange,
                                                nLocales,
                                                localeStage);
         while localeRange.low < iterCount do
         {
+          const localeIterCount = localeRange.length; // >= 1
+          const nTasks = min(localeIterCount, defaultNumTasks(numTasks));
+          var plutoniumIndex:atomic int;
+
           if debugDistributedIters
-          then writeln("Distributed guided iterator (leader): ",
-                       here.locale, ", tid ", 0, ": yielding range ",
-                       unDensify(localeRange,c),
-                       " (", localeRange.length, "/", iterCount, ")",
-                       " as ", localeRange);
+          then writeln("localeIterCount = ", iterCount,
+                       ", nTasks = ", nTasks);
 
-          yield (localeRange,);
+          coforall tid in 0..#nTasks
+          with (ref plutoniumIndex) do
+          {
+            var taskStage:int = plutoniumIndex.fetchAdd(1);
+            var taskRange:cType = guidedSubrange(localeRange,
+                                                 nTasks,
+                                                 taskStage);
+            while taskRange.low < localeIterCount do
+            {
+              if debugDistributedIters
+              then writeln("Distributed guided iterator (leader): ",
+                           here.locale, ", tid ", tid, ": yielding ",
+                           unDensify(taskRange,c),
+                           " (", taskRange.length,
+                           "/", localeIterCount,
+                           " locale-owned, of ", iterCount, " total)",
+                           " as ", taskRange);
+              yield (taskRange,);
 
+              taskStage = plutoniumIndex.fetchAdd(1);
+              taskRange = guidedSubrange(localeRange, nTasks, taskStage);
+            }
+          }
           localeStage = meitneriumIndex.fetchAdd(1);
           localeRange = guidedSubrange(denseRange, nLocales, localeStage);
         }
