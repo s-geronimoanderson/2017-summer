@@ -308,7 +308,7 @@ where tag == iterKind.leader
                 ", ", nLocales,
                 ", ", localeStage,
                 ") = ", localeRange,
-                ", low = ", localeRange.low);
+                ", denseRange.low = ", denseRange.low);
         while localeRange.low < iterCount do
         {
           const localeIterCount = localeRange.length; // >= 1
@@ -329,7 +329,7 @@ where tag == iterKind.leader
                     ", ", nTasks,
                     ", ", taskStage,
                     ") = ", taskRange,
-                    ", low = ", taskRange.low);
+                    ", localeRange.low = ", localeRange.low);
             while taskRange.low < localeIterCount do
             {
               writeln(L,
@@ -337,7 +337,7 @@ where tag == iterKind.leader
                       ", tid ", tid,
                       ": taskStage = ", taskStage,
                       ", taskRange = ", taskRange,
-                      ", low = ", taskRange.low);
+                      ", localeRange.low = ", localeRange.low);
 
               if debugDistributedIters
               then writeln("Distributed guided iterator (leader): ",
@@ -370,7 +370,7 @@ where tag == iterKind.leader
                   ", ", nLocales,
                   ", ", localeStage,
                   ") = ", localeRange,
-                  ", low = ", localeRange.low);
+                  ", denseRange.low = ", denseRange.low);
         }
       }
     }
