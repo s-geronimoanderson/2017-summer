@@ -316,7 +316,9 @@ where tag == iterKind.leader
                                                  taskStage);
             while taskRange.low < localeIterCount do
             {
-              writeln("tid ", tid,
+              writeln("locale ", here.locale,
+                      ": localeRange = ", localeRange,
+                      ", tid ", tid,
                       ": taskStage = ", taskStage,
                       ", taskRange = ", taskRange);
 
