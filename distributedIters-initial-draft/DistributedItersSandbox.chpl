@@ -301,11 +301,14 @@ where tag == iterKind.leader
         var localeRange:cType = guidedSubrange(denseRange,
                                                nLocales,
                                                localeStage);
+        writeln(here.locale, ": denseRange.low = ",
+                denseRange.low);
         writeln(here.locale,
                 " (initial): guidedSubrange(", denseRange,
                 ", ", nLocales,
                 ", ", localeStage,
-                ") = ", localeRange);
+                ") = ", localeRange,
+                ", low = ", localeRange.low);
         while localeRange.low < iterCount do
         {
           const localeIterCount = localeRange.length; // >= 1
@@ -319,18 +322,22 @@ where tag == iterKind.leader
             var taskRange:cType = guidedSubrange(localeRange,
                                                  nTasks,
                                                  taskStage);
+            writeln(here.locale, ": localeRange.low = ",
+                    localeRange.low);
             writeln(here.locale, ".", tid,
                     " (initial): guidedSubrange(", localeRange,
                     ", ", nTasks,
                     ", ", taskStage,
-                    ") = ", taskRange);
+                    ") = ", taskRange,
+                    ", low = ", taskRange.low);
             while taskRange.low < localeIterCount do
             {
               writeln(L,
                       ": localeRange = ", localeRange,
                       ", tid ", tid,
                       ": taskStage = ", taskStage,
-                      ", taskRange = ", taskRange);
+                      ", taskRange = ", taskRange,
+                      ", low = ", taskRange.low);
 
               if debugDistributedIters
               then writeln("Distributed guided iterator (leader): ",
@@ -344,20 +351,26 @@ where tag == iterKind.leader
 
               taskStage = plutoniumIndex.fetchAdd(1);
               taskRange = guidedSubrange(localeRange, nTasks, taskStage);
+              writeln(here.locale, ": localeRange.low = ",
+                      localeRange.low);
               writeln(here.locale, ".", tid,
                       " (repeat): guidedSubrange(", localeRange,
                       ", ", nTasks,
                       ", ", taskStage,
-                      ") = ", taskRange);
+                      ") = ", taskRange,
+                      ", low = ", taskRange.low);
             }
           }
           localeStage = meitneriumIndex.fetchAdd(1);
           localeRange = guidedSubrange(denseRange, nLocales, localeStage);
+          writeln(here.locale, ": denseRange.low = ",
+                  denseRange.low);
           writeln(here.locale,
                   " (repeat): guidedSubrange(", denseRange,
                   ", ", nLocales,
                   ", ", localeStage,
-                  ") = ", localeRange);
+                  ") = ", localeRange,
+                  ", low = ", localeRange.low);
         }
       }
     }
