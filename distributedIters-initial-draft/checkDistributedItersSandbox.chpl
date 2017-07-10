@@ -41,17 +41,19 @@ for i in distributed(controlRange) do
 checkCorrectness(testRangeArray,controlRange);
 */
 
-var testGuidedDistributedRangeArray:[controlRange] int=0;
 
 writeln("Testing a range (distributed guided iterator)...");
+var testGuidedDistributedRangeArray:[controlRange] int=0;
 timer.start();
 forall i in guidedDistributed(controlRange,
                               coordinated=coordinated,
                               numTasks=numTasks) do
+{
   testGuidedDistributedRangeArray[i] = testGuidedDistributedRangeArray[i]+1;
+}
 
 timer.stop();
-writeln("Time: ", timer.elapsed());
+writeln("Time (", n, "): ", timer.elapsed());
 timer.clear();
 
 checkCorrectness(testGuidedDistributedRangeArray,controlRange);

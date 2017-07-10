@@ -305,8 +305,7 @@ where tag == iterKind.leader
         while localeRange.high <= denseRangeHigh do
         {
           const localeRangeHigh:int = localeRange.high;
-          const localeIterCount = localeRange.length; // >= 1
-          const nTasks = min(localeIterCount, defaultNumTasks(numTasks));
+          const nTasks = min(localeRange.length, defaultNumTasks(numTasks));
           var plutoniumIndex:atomic int;
 
           coforall tid in 0..#nTasks
@@ -323,8 +322,8 @@ where tag == iterKind.leader
                            here.locale, ", tid ", tid, ": yielding ",
                            unDensify(taskRange,c),
                            " (", taskRange.length,
-                           "/", localeIterCount,
-                           " locale-owned, of ", iterCount, " total)",
+                           "/", localeRange.length,
+                           " locale-owned of ", iterCount, " total)",
                            " as ", taskRange);
               yield (taskRange,);
 
@@ -399,10 +398,6 @@ private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
     remainder -= chunkSize;
   }
   const subrange:c.type = low..#chunkSize;
-  writeln("guidedSubrange(", c,
-          ",", workerCount,
-          ",", stage,
-          ") = ", subrange);
   return subrange;
 }
 
