@@ -359,10 +359,22 @@ where tag == iterKind.follower
 
 // Helpers.
 
+private proc defaultNumTasks(nTasks:int)
+{
+  var dnTasks=nTasks;
+  if nTasks == 0
+  then
+  {
+    if dataParTasksPerLocale == 0
+    then dnTasks=here.maxTaskPar;
+    else dnTasks=dataParTasksPerLocale;
+  }
+  else if nTasks < 0 then halt("'numTasks' is negative");
+  return dnTasks;
+}
+
 private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
 /*
-  range(?) * int * int -> range(?)
-
   :arg c: The range from which to retrieve a guided subrange.
   :type c: `range(?)`
 
@@ -383,7 +395,7 @@ private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
   schedule would have produced at that point.
 */
 {
-  // TODO: Add input checks.
+  assert(workerCount > 0, "'workerCount' must be positive");
   const cLength = c.length;
   var low:int = c.low;
   var chunkSize:int = cLength / workerCount;
@@ -399,59 +411,6 @@ private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
   }
   const subrange:c.type = low..#chunkSize;
   return subrange;
-}
-
-private proc defaultNumTasks(nTasks:int)
-{
-  var dnTasks=nTasks;
-  if nTasks == 0
-  then
-  {
-    if dataParTasksPerLocale == 0
-    then dnTasks=here.maxTaskPar;
-    else dnTasks=dataParTasksPerLocale;
-  }
-  else if nTasks < 0 then halt("'numTasks' is negative");
-  return dnTasks;
-}
-
-private proc adaptSplit(ref rangeToSplit:range(?),
-                        splitFactor:int,
-                        ref itLeft:bool,
-                        ref lock:vlock,
-                        splitTail:bool=false,
-                        profThreshold:int=1)
-{
-  type rType=rangeToSplit.type;
-  type lenType=rangeToSplit.length.type;
-
-  var initialSubrange:rType;
-  var totLen, size : lenType;
-
-  lock.lock();
-  totLen=rangeToSplit.length;
-  if totLen > profThreshold
-  then size=max(totLen/splitFactor, profThreshold);
-  else
-  {
-    size = totLen;
-    itLeft = false;
-  }
-  if size == totLen
-  then
-  {
-    itLeft = false;
-    initialSubrange = rangeToSplit;
-    rangeToSplit = 1..0;
-  }
-  else
-  {
-    const direction = if splitTail then -1 else 1;
-    initialSubrange = rangeToSplit#(direction*size);
-    rangeToSplit = rangeToSplit#(direction*(size-totLen));
-  }
-  lock.unlock();
-  return initialSubrange;
 }
 
 } // End of module.

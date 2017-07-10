@@ -4,6 +4,7 @@
 */
 use BlockDist,
     DistributedItersSandbox,
+    DynamicIters,
     Math,
     Time;
 
@@ -48,15 +49,23 @@ timer.start();
 forall i in guidedDistributed(controlRange,
                               coordinated=coordinated,
                               numTasks=numTasks) do
-{
   testGuidedDistributedRangeArray[i] = testGuidedDistributedRangeArray[i]+1;
-}
-
 timer.stop();
 writeln("Time (", n, "): ", timer.elapsed());
 timer.clear();
 
-checkCorrectness(testGuidedDistributedRangeArray,controlRange);
+//checkCorrectness(testGuidedDistributedRangeArray,controlRange);
+
+writeln("Testing a range (reference guided iterator)...");
+var testReferenceGuidedRangeArray:[controlRange] int=0;
+timer.start();
+forall i in guided(controlRange, numTasks=numTasks) do
+  testReferenceGuidedRangeArray[i] = testReferenceGuidedRangeArray[i]+1;
+timer.stop();
+writeln("Time (", n, "): ", timer.elapsed());
+timer.clear();
+
+//checkCorrectness(testReferenceGuidedRangeArray,controlRange);
 
 //recreationVersion(n);
 
