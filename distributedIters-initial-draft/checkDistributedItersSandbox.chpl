@@ -45,12 +45,9 @@ var testGuidedDistributedRangeArray:[controlRange] int=0;
 
 writeln("Testing a range (distributed guided iterator)...");
 timer.start();
-/*
 forall i in guidedDistributed(controlRange,
                               coordinated=coordinated,
                               numTasks=numTasks) do
-*/
-forall i in guidedDistributed(controlRange) do
   testGuidedDistributedRangeArray[i] = testGuidedDistributedRangeArray[i]+1;
 
 timer.stop();

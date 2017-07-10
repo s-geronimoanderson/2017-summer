@@ -309,6 +309,9 @@ where tag == iterKind.leader
         while localeRange.low < iterCount do
         {
           const localeIterCount = localeRange.length; // >= 1
+          writeln("localeIterCount = ", localeIterCount,
+                  ", defaultNumTasks(", numTasks,
+                  ") = ", defaultNumTasks(numTasks));
           const nTasks = min(localeIterCount, defaultNumTasks(numTasks));
           var plutoniumIndex:atomic int;
 
