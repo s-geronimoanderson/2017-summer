@@ -305,7 +305,7 @@ where tag == iterKind.leader
                 " (initial): guidedSubrange(", denseRange,
                 ", ", nLocales,
                 ", ", localeStage,
-                ")");
+                ") = ", localeRange);
         while localeRange.low < iterCount do
         {
           const localeIterCount = localeRange.length; // >= 1
@@ -323,7 +323,7 @@ where tag == iterKind.leader
                     " (initial): guidedSubrange(", localeRange,
                     ", ", nTasks,
                     ", ", taskStage,
-                    ")");
+                    ") = ", taskRange);
             while taskRange.low < localeIterCount do
             {
               writeln(L,
@@ -348,7 +348,7 @@ where tag == iterKind.leader
                       " (repeat): guidedSubrange(", localeRange,
                       ", ", nTasks,
                       ", ", taskStage,
-                      ")");
+                      ") = ", taskRange);
             }
           }
           localeStage = meitneriumIndex.fetchAdd(1);
@@ -357,7 +357,7 @@ where tag == iterKind.leader
                   " (repeat): guidedSubrange(", denseRange,
                   ", ", nLocales,
                   ", ", localeStage,
-                  ")");
+                  ") = ", localeRange);
         }
       }
     }
@@ -408,13 +408,13 @@ private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
   schedule would have produced at that point.
 */
 {
+  // TODO: Add input checks.
   const cLength = c.length;
   var low:int = c.low;
   var chunkSize:int = cLength / workerCount;
   var remainder:int = cLength - chunkSize;
   for unused in 1..#stage do
   {
-    writeln("Hi!");
     low += chunkSize;
     chunkSize = remainder / workerCount;
     chunkSize = if chunkSize >= 1
