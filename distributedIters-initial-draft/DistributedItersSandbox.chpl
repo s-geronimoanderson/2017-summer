@@ -301,8 +301,6 @@ where tag == iterKind.leader
         var localeRange:cType = guidedSubrange(denseRange,
                                                nLocales,
                                                localeStage);
-        writeln(here.locale, ": denseRange.low = ",
-                denseRange.low);
         writeln(here.locale,
                 " (initial): guidedSubrange(", denseRange,
                 ", ", nLocales,
@@ -322,8 +320,6 @@ where tag == iterKind.leader
             var taskRange:cType = guidedSubrange(localeRange,
                                                  nTasks,
                                                  taskStage);
-            writeln(here.locale, ": localeRange.low = ",
-                    localeRange.low);
             writeln(here.locale, ".", tid,
                     " (initial): guidedSubrange(", localeRange,
                     ", ", nTasks,
@@ -351,20 +347,16 @@ where tag == iterKind.leader
 
               taskStage = plutoniumIndex.fetchAdd(1);
               taskRange = guidedSubrange(localeRange, nTasks, taskStage);
-              writeln(here.locale, ": localeRange.low = ",
-                      localeRange.low);
               writeln(here.locale, ".", tid,
                       " (repeat): guidedSubrange(", localeRange,
                       ", ", nTasks,
                       ", ", taskStage,
                       ") = ", taskRange,
-                      ", low = ", taskRange.low);
+                      ", localeRange.low = ", localeRange.low);
             }
           }
           localeStage = meitneriumIndex.fetchAdd(1);
           localeRange = guidedSubrange(denseRange, nLocales, localeStage);
-          writeln(here.locale, ": denseRange.low = ",
-                  denseRange.low);
           writeln(here.locale,
                   " (repeat): guidedSubrange(", denseRange,
                   ", ", nLocales,
@@ -435,8 +427,9 @@ private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
                 else 1;
     remainder -= chunkSize;
   }
-  const subrange:c.type = low..#chunkSize;
-  return subrange;
+  // const subrange:c.type = low..#chunkSize;
+  // return subrange;
+  return low..#chunkSize;
 }
 
 private proc defaultNumTasks(nTasks:int)
