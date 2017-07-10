@@ -316,7 +316,7 @@ where tag == iterKind.leader
                                                  taskStage);
             while taskRange.low < localeIterCount do
             {
-              writeln("locale ", L,
+              writeln(L,
                       ": localeRange = ", localeRange,
                       ", tid ", tid,
                       ": taskStage = ", taskStage,
@@ -392,7 +392,7 @@ private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
   var low:int = c.low;
   var chunkSize:int = cLength / workerCount;
   var remainder:int = cLength - chunkSize;
-  for unused in 1..stage do
+  for unused in 1..#stage do
   {
     low += chunkSize;
     chunkSize = remainder / workerCount;
