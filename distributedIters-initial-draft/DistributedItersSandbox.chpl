@@ -305,8 +305,7 @@ where tag == iterKind.leader
                 " (initial): guidedSubrange(", denseRange,
                 ", ", nLocales,
                 ", ", localeStage,
-                ") = ", localeRange,
-                ", denseRange.low = ", denseRange.low);
+                ") = ", localeRange);
         while localeRange.low < iterCount do
         {
           const localeIterCount = localeRange.length; // >= 1
@@ -324,16 +323,14 @@ where tag == iterKind.leader
                     " (initial): guidedSubrange(", localeRange,
                     ", ", nTasks,
                     ", ", taskStage,
-                    ") = ", taskRange,
-                    ", localeRange.low = ", localeRange.low);
+                    ") = ", taskRange);
             while taskRange.low < localeIterCount do
             {
               writeln(L,
                       ": localeRange = ", localeRange,
                       ", tid ", tid,
                       ": taskStage = ", taskStage,
-                      ", taskRange = ", taskRange,
-                      ", localeRange.low = ", localeRange.low);
+                      ", taskRange = ", taskRange);
 
               if debugDistributedIters
               then writeln("Distributed guided iterator (leader): ",
@@ -351,8 +348,7 @@ where tag == iterKind.leader
                       " (repeat): guidedSubrange(", localeRange,
                       ", ", nTasks,
                       ", ", taskStage,
-                      ") = ", taskRange,
-                      ", localeRange.low = ", localeRange.low);
+                      ") = ", taskRange);
             }
           }
           localeStage = meitneriumIndex.fetchAdd(1);
@@ -361,8 +357,7 @@ where tag == iterKind.leader
                   " (repeat): guidedSubrange(", denseRange,
                   ", ", nLocales,
                   ", ", localeStage,
-                  ") = ", localeRange,
-                  ", denseRange.low = ", denseRange.low);
+                  ") = ", localeRange);
         }
       }
     }
