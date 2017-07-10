@@ -301,12 +301,13 @@ where tag == iterKind.leader
         var localeRange:cType = guidedSubrange(denseRange,
                                                nLocales,
                                                localeStage);
+        const localeRangeHigh:int = localeRange.high;
         writeln(here.locale,
                 " (initial): guidedSubrange(", denseRange,
                 ", ", nLocales,
                 ", ", localeStage,
                 ") = ", localeRange);
-        while localeRange.low < iterCount do
+        while localeRange.low <= iterCount do
         {
           const localeIterCount = localeRange.length; // >= 1
           writeln("localeIterCount = ", localeIterCount,
@@ -322,19 +323,15 @@ where tag == iterKind.leader
             var taskRange:cType = guidedSubrange(localeRange,
                                                  nTasks,
                                                  taskStage);
+            const taskRangeHigh:int = taskRange.high;
             writeln(here.locale, ".", tid,
                     " (initial): guidedSubrange(", localeRange,
                     ", ", nTasks,
                     ", ", taskStage,
-                    ") = ", taskRange);
-            while taskRange.low < localeIterCount do
+                    ") = ", taskRange,
+                    ", low-hi ", taskRange.low, "-", taskRange.high);
+            while taskRange.low <= localeRangeHigh do
             {
-              writeln(L,
-                      ": localeRange = ", localeRange,
-                      ", tid ", tid,
-                      ": taskStage = ", taskStage,
-                      ", taskRange = ", taskRange);
-
               if debugDistributedIters
               then writeln("Distributed guided iterator (leader): ",
                            here.locale, ", tid ", tid, ": yielding ",
@@ -351,7 +348,8 @@ where tag == iterKind.leader
                       " (repeat): guidedSubrange(", localeRange,
                       ", ", nTasks,
                       ", ", taskStage,
-                      ") = ", taskRange);
+                      ") = ", taskRange,
+                      ", low-hi ", taskRange.low, "-", taskRange.high);
             }
           }
           localeStage = meitneriumIndex.fetchAdd(1);
