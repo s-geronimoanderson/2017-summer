@@ -81,47 +81,6 @@ proc recreationVersion(totalWork:int=n, processorCount:int=4)
   }
 }
 
-proc guidedSubrange(c:range(?), workerCount:int, stage:int)
-/*
-  range(?) * int * int -> range(?)
-
-  :arg c: The range from which to retrieve a guided subrange.
-  :type c: `range(?)`
-
-  :arg workerCount: The number of workers (locales, tasks) to assume are
-                    working on ``c``. This (along with stage) determines the
-                    subrange length.
-  :type workerCount: `int`
-
-  :arg stage: The number of guided subranges to skip before returning a guided
-              subrange.
-  :type stage: `int`
-
-  :returns: A subrange of ``c``.
-
-  This function takes a range, a worker count, and a stage, and simulates
-  performing OpenMP's guided schedule on the range with the given worker count
-  until reaching the given stage. It then returns the subrange that the guided
-  schedule would have produced at that point.
-*/
-{
-  const cLength = c.length;
-  var low:int = 0;
-  var chunkSize:int = cLength / workerCount;
-  var remainder:int = cLength - chunkSize;
-  for unused in 1..stage do
-  {
-    low += chunkSize;
-    chunkSize = remainder / workerCount;
-    chunkSize = if chunkSize >= 1
-                then chunkSize
-                else 1;
-    remainder -= chunkSize;
-  }
-  const subrange:c.type = low..#chunkSize;
-  return subrange;
-}
-
 proc geometricVersion(totalWork:int=n, processorCount:int=4)
 /*
   Geometric version, O(lg n) serial time complexity.
