@@ -301,6 +301,11 @@ where tag == iterKind.leader
         var localeRange:cType = guidedSubrange(denseRange,
                                                nLocales,
                                                localeStage);
+        writeln(here.locale,
+                " (initial): guidedSubrange(", denseRange,
+                ", ", nLocales,
+                ", ", localeStage,
+                ")");
         while localeRange.low < iterCount do
         {
           const localeIterCount = localeRange.length; // >= 1
@@ -314,6 +319,11 @@ where tag == iterKind.leader
             var taskRange:cType = guidedSubrange(localeRange,
                                                  nTasks,
                                                  taskStage);
+            writeln(here.locale, ".", tid,
+                    " (initial): guidedSubrange(", localeRange,
+                    ", ", nTasks,
+                    ", ", taskStage,
+                    ")");
             while taskRange.low < localeIterCount do
             {
               writeln(L,
@@ -334,10 +344,20 @@ where tag == iterKind.leader
 
               taskStage = plutoniumIndex.fetchAdd(1);
               taskRange = guidedSubrange(localeRange, nTasks, taskStage);
+              writeln(here.locale, ".", tid,
+                      " (repeat): guidedSubrange(", localeRange,
+                      ", ", nTasks,
+                      ", ", taskStage,
+                      ")");
             }
           }
           localeStage = meitneriumIndex.fetchAdd(1);
           localeRange = guidedSubrange(denseRange, nLocales, localeStage);
+          writeln(here.locale,
+                  " (repeat): guidedSubrange(", denseRange,
+                  ", ", nLocales,
+                  ", ", localeStage,
+                  ")");
         }
       }
     }
@@ -394,6 +414,7 @@ private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
   var remainder:int = cLength - chunkSize;
   for unused in 1..#stage do
   {
+    writeln("Hi!");
     low += chunkSize;
     chunkSize = remainder / workerCount;
     chunkSize = if chunkSize >= 1
