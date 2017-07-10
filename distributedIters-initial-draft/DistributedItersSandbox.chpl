@@ -307,10 +307,6 @@ where tag == iterKind.leader
           const nTasks = min(localeIterCount, defaultNumTasks(numTasks));
           var plutoniumIndex:atomic int;
 
-          if debugDistributedIters
-          then writeln("localeIterCount = ", iterCount,
-                       ", nTasks = ", nTasks);
-
           coforall tid in 0..#nTasks
           with (ref plutoniumIndex) do
           {
@@ -320,6 +316,10 @@ where tag == iterKind.leader
                                                  taskStage);
             while taskRange.low < localeIterCount do
             {
+              writeln("tid ", tid,
+                      ": taskStage = ", taskStage,
+                      ", taskRange = ", taskRange);
+
               if debugDistributedIters
               then writeln("Distributed guided iterator (leader): ",
                            here.locale, ", tid ", tid, ": yielding ",
