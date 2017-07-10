@@ -316,7 +316,6 @@ where tag == iterKind.leader
             var taskRange:cType = guidedSubrange(localeRange,
                                                  nTasks,
                                                  taskStage);
-            writeln(taskRange.high, " <= ", localeRangeHigh);
             while taskRange.high <= localeRangeHigh do
             {
               if debugDistributedIters
@@ -331,7 +330,6 @@ where tag == iterKind.leader
 
               taskStage = plutoniumIndex.fetchAdd(1);
               taskRange = guidedSubrange(localeRange, nTasks, taskStage);
-              writeln(taskRange.high, " <= ", localeRangeHigh);
             }
           }
           localeStage = meitneriumIndex.fetchAdd(1);
