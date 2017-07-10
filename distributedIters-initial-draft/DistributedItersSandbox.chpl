@@ -389,7 +389,7 @@ where tag == iterKind.follower
 
 // Helpers.
 
-private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
+private inline proc guidedSubrange(c:range(?), workerCount:int, stage:int)
 /*
   range(?) * int * int -> range(?)
 
@@ -427,9 +427,8 @@ private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
                 else 1;
     remainder -= chunkSize;
   }
-  // const subrange:c.type = low..#chunkSize;
-  // return subrange;
-  return low..#chunkSize;
+  const subrange:c.type = low..#chunkSize;
+  return 13..13;//subrange;
 }
 
 private proc defaultNumTasks(nTasks:int)
