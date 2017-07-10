@@ -278,10 +278,11 @@ where tag == iterKind.leader
   }
   else
   {
-    const masterLocale=here.locale;
-    const nLocales=if coordinated && numLocales > 1
-                   then numLocales-1
-                   else numLocales;
+    const denseRangeHigh:int = denseRange.high;
+    const masterLocale = here.locale;
+    const nLocales = if coordinated && numLocales > 1
+                     then numLocales-1
+                     else numLocales;
     var meitneriumIndex:atomic int;
 
     if debugDistributedIters
@@ -301,18 +302,10 @@ where tag == iterKind.leader
         var localeRange:cType = guidedSubrange(denseRange,
                                                nLocales,
                                                localeStage);
-        const localeRangeHigh:int = localeRange.high;
-        writeln(here.locale,
-                " (initial): guidedSubrange(", denseRange,
-                ", ", nLocales,
-                ", ", localeStage,
-                ") = ", localeRange);
-        while localeRange.low <= iterCount do
+        while localeRange.high <= denseRangeHigh do
         {
+          const localeRangeHigh:int = localeRange.high;
           const localeIterCount = localeRange.length; // >= 1
-          writeln("localeIterCount = ", localeIterCount,
-                  ", defaultNumTasks(", numTasks,
-                  ") = ", defaultNumTasks(numTasks));
           const nTasks = min(localeIterCount, defaultNumTasks(numTasks));
           var plutoniumIndex:atomic int;
 
@@ -323,14 +316,8 @@ where tag == iterKind.leader
             var taskRange:cType = guidedSubrange(localeRange,
                                                  nTasks,
                                                  taskStage);
-            const taskRangeHigh:int = taskRange.high;
-            writeln(here.locale, ".", tid,
-                    " (initial): guidedSubrange(", localeRange,
-                    ", ", nTasks,
-                    ", ", taskStage,
-                    ") = ", taskRange,
-                    ", low-hi ", taskRange.low, "-", taskRange.high);
-            while taskRange.low <= localeRangeHigh do
+            writeln(taskRange.high, " <= ", localeRangeHigh);
+            while taskRange.high <= localeRangeHigh do
             {
               if debugDistributedIters
               then writeln("Distributed guided iterator (leader): ",
@@ -344,21 +331,11 @@ where tag == iterKind.leader
 
               taskStage = plutoniumIndex.fetchAdd(1);
               taskRange = guidedSubrange(localeRange, nTasks, taskStage);
-              writeln(here.locale, ".", tid,
-                      " (repeat): guidedSubrange(", localeRange,
-                      ", ", nTasks,
-                      ", ", taskStage,
-                      ") = ", taskRange,
-                      ", low-hi ", taskRange.low, "-", taskRange.high);
+              writeln(taskRange.high, " <= ", localeRangeHigh);
             }
           }
           localeStage = meitneriumIndex.fetchAdd(1);
           localeRange = guidedSubrange(denseRange, nLocales, localeStage);
-          writeln(here.locale,
-                  " (repeat): guidedSubrange(", denseRange,
-                  ", ", nLocales,
-                  ", ", localeStage,
-                  ") = ", localeRange);
         }
       }
     }
@@ -424,6 +401,10 @@ private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
     remainder -= chunkSize;
   }
   const subrange:c.type = low..#chunkSize;
+  writeln("guidedSubrange(", c,
+          ",", workerCount,
+          ",", stage,
+          ") = ", subrange);
   return subrange;
 }
 
