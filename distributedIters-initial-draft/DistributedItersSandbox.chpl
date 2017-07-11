@@ -311,13 +311,15 @@ where tag == iterKind.leader
                                                localeStage);
         while localeRange.high <= denseRangeHigh do
         {
-          for taskRangeTuple in DynamicIters.guided(tag=iterKind.leader,
-                                       localeRange,
-                                       numTasks)
+          const denseLocaleRange:cType = densify(localeRange, localeRange);
+          for denseTaskRangeTuple in DynamicIters.guided(tag=iterKind.leader,
+                                                    localeRange,
+                                                    numTasks)
           {
+            const taskRange:cType = unDensify(denseTaskRangeTuple(1),
+                                              localeRange);
             if debugDistributedIters
             {
-              const taskRange:cType = taskRangeTuple(1);
               writeln("Distributed guided iterator (leader): ",
                       here.locale, ": yielding ",
                       unDensify(taskRange,c),
@@ -326,7 +328,7 @@ where tag == iterKind.leader
                       " locale-owned of ", iterCount, " total)",
                       " as ", taskRange);
             }
-            yield taskRangeTuple;
+            yield (taskRange,);
           }
 
           idleTime.start();
