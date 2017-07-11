@@ -26,7 +26,7 @@ module DistributedItersSandbox
 use DynamicIters;
 
 // Toggle debugging output.
-config param debugDistributedIters:bool=true;
+config param debugDistributedIters:bool=false;
 
 if debugDistributedIters
 then writeln("DistributedIters: Running on locale ", here.id, " of ",
@@ -304,33 +304,24 @@ where tag == iterKind.leader
                                                localeStage);
         while localeRange.high <= denseRangeHigh do
         {
-          const localeRangeHigh:int = localeRange.high;
-          const nTasks = min(localeRange.length, defaultNumTasks(numTasks));
-          var plutoniumIndex:atomic int;
-
-          coforall tid in 0..#nTasks
-          with (ref plutoniumIndex) do
+          for taskRangeTuple in DynamicIters.guided(tag=iterKind.leader,
+                                       localeRange,
+                                       numTasks)
           {
-            var taskStage:int = plutoniumIndex.fetchAdd(1);
-            var taskRange:cType = guidedSubrange(localeRange,
-                                                 nTasks,
-                                                 taskStage);
-            while taskRange.high <= localeRangeHigh do
+            if debugDistributedIters
             {
-              if debugDistributedIters
-              then writeln("Distributed guided iterator (leader): ",
-                           here.locale, ", tid ", tid, ": yielding ",
-                           unDensify(taskRange,c),
-                           " (", taskRange.length,
-                           "/", localeRange.length,
-                           " locale-owned of ", iterCount, " total)",
-                           " as ", taskRange);
-              yield (taskRange,);
-
-              taskStage = plutoniumIndex.fetchAdd(1);
-              taskRange = guidedSubrange(localeRange, nTasks, taskStage);
+              const taskRange:cType = taskRangeTuple(1);
+              writeln("Distributed guided iterator (leader): ",
+                      here.locale, ": yielding ",
+                      unDensify(taskRange,c),
+                      " (", taskRange.length,
+                      "/", localeRange.length,
+                      " locale-owned of ", iterCount, " total)",
+                      " as ", taskRange);
             }
+            yield taskRangeTuple;
           }
+
           localeStage = meitneriumIndex.fetchAdd(1);
           localeRange = guidedSubrange(denseRange, nLocales, localeStage);
         }

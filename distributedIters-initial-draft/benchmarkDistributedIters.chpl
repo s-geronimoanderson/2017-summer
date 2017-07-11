@@ -29,7 +29,7 @@ var bestK, bestI:int=0;
 var timer:Timer;
 timer.start();
 
-for i in guidedDistributed(controlRange) do
+forall i in guidedDistributed(controlRange) do
 {
   var result:real;
   var k:int=(uniformlyRandomWorkload[i] * n):int;

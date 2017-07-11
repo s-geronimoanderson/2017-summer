@@ -54,7 +54,7 @@ timer.stop();
 writeln("Time (", n, "): ", timer.elapsed());
 timer.clear();
 
-//checkCorrectness(testGuidedDistributedRangeArray,controlRange);
+checkCorrectness(testGuidedDistributedRangeArray,controlRange);
 
 writeln("Testing a range (reference guided iterator)...");
 var testReferenceGuidedRangeArray:[controlRange] int=0;
