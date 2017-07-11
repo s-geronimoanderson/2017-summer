@@ -5,11 +5,11 @@
   Part of a 2017 Cray summer intern project by Sean I. Geronimo Anderson
   (sgeronimo@cray.com) as mentored by Ben Harshbarger (bharshbarg@cray.com).
 */
-use DistributedIters;
-use Math;
-use Random;
-use Sort;
-use Time;
+use DistributedIters,
+    Math,
+    Random,
+    Sort,
+    Time;
 /*
   Control variables. These determine the test variables (defined later) and
   provide control for checking correctness.

@@ -23,10 +23,11 @@
 */
 module DistributedItersSandbox
 {
-use DynamicIters;
+use DynamicIters,
+    Time;
 
 // Toggle debugging output.
-config param debugDistributedIters:bool=false;
+config param debugDistributedIters:bool=true;
 
 if debugDistributedIters
 then writeln("DistributedIters: Running on locale ", here.id, " of ",
@@ -298,7 +299,13 @@ where tag == iterKind.leader
          || L != masterLocale // coordinated == true
       then
       {
+        var idleTime,totalTime:Timer;
+        totalTime.start();
+
+        idleTime.start();
         var localeStage:int = meitneriumIndex.fetchAdd(1);
+        idleTime.stop();
+
         var localeRange:cType = guidedSubrange(denseRange,
                                                nLocales,
                                                localeStage);
@@ -322,8 +329,20 @@ where tag == iterKind.leader
             yield taskRangeTuple;
           }
 
+          idleTime.start();
           localeStage = meitneriumIndex.fetchAdd(1);
+          idleTime.stop();
+
           localeRange = guidedSubrange(denseRange, nLocales, localeStage);
+        }
+        totalTime.stop();
+        if debugDistributedIters then
+        {
+          const idleTimeElapsed = idleTime.elapsed();
+          const totalTimeElapsed = totalTime.elapsed();
+          writeln("Distributed guided iterator (leader): ",
+                  here.locale, ": idleTime/totalTime (", idleTimeElapsed, "/",
+                  totalTimeElapsed, ") = ", idleTimeElapsed/totalTimeElapsed);
         }
       }
     }
