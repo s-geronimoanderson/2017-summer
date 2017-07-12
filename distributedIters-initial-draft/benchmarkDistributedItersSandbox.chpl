@@ -9,7 +9,9 @@
   Control variables. These determine the test variables (defined later) and
   provide control for checking correctness.
 */
+config const coordinated:bool=false;
 config const n:int=100;
+
 var controlRange:range=0..#n;
 
 // Globals.
@@ -20,8 +22,6 @@ use DistributedItersSandbox,
     Time;
 var timer:Timer;
 
-var firstQuarter,secondQuarter,thirdQuarter,fourthQuarter:int;
-
 /*
   Iterate over a range that maps to a list of uniform random integers.
   Do some work proportional to the value of the integers.
@@ -30,22 +30,25 @@ writeln("Testing a uniformly random workload...");
 var uniformlyRandomWorkload:[controlRange] real=0.0;
 fillRandom(uniformlyRandomWorkload);
 
-// Check distribution.
-for i in uniformlyRandomWorkload do
-{
-  const k:int=(i * n):int;
-  if k < n:real/4
-  then firstQuarter += 1;
-  else if k < n:real/2
-       then secondQuarter += 1;
-       else if k < n:real*3/4
-            then thirdQuarter += 1;
-            else fourthQuarter += 1;
+proc arrayValueDistributionHistogram(arr:[]int, c)
+{ // Check distribution.
+  var firstQuarter,secondQuarter,thirdQuarter,fourthQuarter:int;
+  for i in uniformlyRandomWorkload do
+  {
+    const k:int=(i * n):int;
+    if k < n:real/4
+    then firstQuarter += 1;
+    else if k < n:real/2
+         then secondQuarter += 1;
+         else if k < n:real*3/4
+              then thirdQuarter += 1;
+              else fourthQuarter += 1;
+  }
+  writeln("0-", n:real/4 - 1/n:real, ": ", firstQuarter,
+          ", ", n:real/4, "-", n:real/2 - 1/n:real, ": ", secondQuarter,
+          ", ", n:real/2, "-", n:real*3/4 - 1/n:real, ": ", thirdQuarter,
+          ", ", n:real*3/4, "-", n:real - 1/n:real, ": ", fourthQuarter);
 }
-writeln("0-", n:real/4 - 1/n:real, ": ", firstQuarter,
-        ", ", n:real/4, "-", n:real/2 - 1/n:real, ": ", secondQuarter,
-        ", ", n:real/2, "-", n:real*3/4 - 1/n:real, ": ", thirdQuarter,
-        ", ", n:real*3/4, "-", n:real - 1/n:real, ": ", fourthQuarter);
 
 timer.start();
 forall i in guidedDistributed(controlRange) do
@@ -198,7 +201,8 @@ iter sieveOfEratosthenes(n:int)
 
 proc piApproximate(k:int):real
 { /*
-    Yields a pi approximation to k iterations using Fabrice Bellard's formula.
+    Returns a pi approximation using Fabrice Bellard's formula for k
+    iterations.
     https://en.wikipedia.org/wiki/Approximations_of_%CF%80#Efficient_methods
   */
   var current:real=0.0;
@@ -215,7 +219,7 @@ proc piApproximate(k:int):real
                                            - (4/(tenN + 7))
                                            + (1/(tenN + 9))));
   }
-  return current/64;
+  return current/64.0;
 }
 
 proc trialDivision(n:int):domain(int)        // def trialDivision(n):
@@ -225,10 +229,10 @@ proc trialDivision(n:int):domain(int)        // def trialDivision(n):
   then return {1..0};                        //   return []
   var x:int=n;                               // x = n # Need this only for Chapel.
   var primeFactors:domain(int);              // primeFactors = []
-  writeln(x, "**0.5:int is ", (x**0.5):int);
+  //writeln(x, "**0.5:int is ", (x**0.5):int);
   for p in sieveOfEratosthenes((x**0.5):int) // for p in prime_sieve(int(x**0.5)):
   {
-    writeln("Checking ", p*p, " > ", x);
+    //writeln("Checking ", p*p, " > ", x);
     if p*p > x then break;                   //   if p*p > x: break
     while x % p == 0 do                      //   while x % p == 0:
     {
