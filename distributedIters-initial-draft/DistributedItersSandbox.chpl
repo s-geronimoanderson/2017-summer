@@ -362,7 +362,7 @@ where tag == iterKind.leader
       {
         localeStdDev += (localeTimes[i] - localeMeanTime)**2;
       }
-      localeStdDev = (localeStdDev/nLocales)**(1/2);
+      localeStdDev = (localeStdDev/nLocales)**(1.0/2.0);
       writeln("Distributed guided iterator (leader): ", here.locale,
               ": mean (locale time) = ",
               localeMeanTime, ", stddev (locale time): ",
