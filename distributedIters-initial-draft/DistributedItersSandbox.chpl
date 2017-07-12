@@ -338,7 +338,7 @@ where tag == iterKind.leader
           localeRange = guidedSubrange(denseRange, nLocales, localeStage);
         }
         totalTime.stop();
-        if debugDistributedIters then
+        if true then
         {
           const idleTimeElapsed = idleTime.elapsed();
           const totalTimeElapsed = totalTime.elapsed();

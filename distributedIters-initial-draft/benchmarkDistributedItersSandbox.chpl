@@ -13,7 +13,7 @@ config const n:int=100;
 var controlRange:range=0..#n;
 
 // Globals.
-use DistributedIters,
+use DistributedItersSandbox,
     Math,
     Random,
     Sort,
@@ -54,10 +54,10 @@ forall i in guidedDistributed(controlRange) do
 
   piApproximate(k);
 
-  // 20 s with 4 tasks (n = 10,000)
+  // 20s with 4 tasks (n = 10,000)
   //isPerfect(k:int);
 
-  // 30 s with 4 tasks (n = 10,000)
+  // 30s with 4 tasks (n = 10,000)
   /*
     Not currently correct due to computer arithmetic, but does almost all the
     work it would if it were correct, so it's useful as a dummy load.
