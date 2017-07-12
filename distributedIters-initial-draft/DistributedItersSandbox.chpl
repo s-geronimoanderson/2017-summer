@@ -285,13 +285,14 @@ where tag == iterKind.leader
                      then numLocales-1
                      else numLocales;
     var meitneriumIndex:atomic int;
+    var localeTimes:[0..#numLocales]real = 0.0;
 
     if debugDistributedIters
     then writeln("iterCount = ", iterCount,
                  ", nLocales = ", nLocales);
 
     coforall L in Locales
-    with (ref meitneriumIndex) do
+    with (ref meitneriumIndex, ref localeTimes) do
     on L do
     {
       if numLocales == 1
@@ -299,16 +300,15 @@ where tag == iterKind.leader
          || L != masterLocale // coordinated == true
       then
       {
-        var idleTime,totalTime:Timer;
+        var overheadTime,totalTime:Timer;
         totalTime.start();
 
-        idleTime.start();
+        overheadTime.start();
         var localeStage:int = meitneriumIndex.fetchAdd(1);
-        idleTime.stop();
-
         var localeRange:cType = guidedSubrange(denseRange,
                                                nLocales,
                                                localeStage);
+        overheadTime.stop();
         while localeRange.high <= denseRangeHigh do
         {
           const denseLocaleRange:cType = densify(localeRange, localeRange);
@@ -331,22 +331,42 @@ where tag == iterKind.leader
             yield (taskRange,);
           }
 
-          idleTime.start();
+          overheadTime.start();
           localeStage = meitneriumIndex.fetchAdd(1);
-          idleTime.stop();
-
           localeRange = guidedSubrange(denseRange, nLocales, localeStage);
+          overheadTime.stop();
         }
         totalTime.stop();
         if true then
         {
-          const idleTimeElapsed = idleTime.elapsed();
+          const overheadTimeElapsed = overheadTime.elapsed();
           const totalTimeElapsed = totalTime.elapsed();
-          writeln("Distributed guided iterator (leader): ",
-                  here.locale, ": idleTime/totalTime (", idleTimeElapsed, "/",
-                  totalTimeElapsed, ") = ", idleTimeElapsed/totalTimeElapsed);
+          localeTimes[here.id] = totalTimeElapsed;
+          writeln("Distributed guided iterator (leader): ", here.locale,
+                  ": overheadTime/totalTime (",
+                  overheadTimeElapsed, "/",
+                  totalTimeElapsed, ") = ",
+                  overheadTimeElapsed/totalTimeElapsed);
         }
       }
+    }
+    if true then
+    {
+      var localeTotalTime,localeMeanTime,localeStdDev:real;
+      for i in 0..#numLocales do
+      {
+        localeTotalTime += localeTimes[i];
+      }
+      localeMeanTime = localeTotalTime / nLocales;
+      for i in 0..#numLocales do
+      {
+        localeStdDev += (localeTimes[i] - localeMeanTime)**2;
+      }
+      localeStdDev = (localeStdDev/nLocales)**(1/2);
+      writeln("Distributed guided iterator (leader): ", here.locale,
+              ": mean (locale time) = ",
+              localeMeanTime, ", stddev (locale time): ",
+              localeStdDev, ".");
     }
   }
 }

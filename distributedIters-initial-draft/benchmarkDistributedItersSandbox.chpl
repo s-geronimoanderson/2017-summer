@@ -52,12 +52,13 @@ forall i in guidedDistributed(controlRange) do
 {
   const k:int=(uniformlyRandomWorkload[i] * n):int;
 
+  // Jupiter: 43 s with 4 tasks (n = 100,000)
   piApproximate(k);
 
-  // 20s with 4 tasks (n = 10,000)
+  // Kaibab: 20 s with 4 tasks (n = 10,000)
   //isPerfect(k:int);
 
-  // 30s with 4 tasks (n = 10,000)
+  // Kaibab: 30 s with 4 tasks (n = 10,000)
   /*
     Not currently correct due to computer arithmetic, but does almost all the
     work it would if it were correct, so it's useful as a dummy load.
