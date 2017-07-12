@@ -51,7 +51,7 @@ proc arrayValueDistributionHistogram(arr:[]int, c)
 }
 
 timer.start();
-forall i in guidedDistributed(controlRange) do
+forall i in guidedDistributed(controlRange, coordinated=coordinated) do
 {
   const k:int=(uniformlyRandomWorkload[i] * n):int;
 
