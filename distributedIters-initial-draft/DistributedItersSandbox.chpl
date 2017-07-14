@@ -24,6 +24,7 @@
 module DistributedItersSandbox
 {
 use DynamicIters,
+    Math,
     Time;
 
 // Toggle debugging output.
@@ -423,7 +424,6 @@ private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
 
 proc writeTimeStatistics(totalTime, localeTimes:[], coordinated)
 {
-  use Math;
   const low:int = if coordinated && (numLocales > 1)
                   then 1
                   else 0;
