@@ -445,8 +445,12 @@ proc writeTimeStatistics(totalTime, localeTimes:[], coordinated)
 
   for i in low..#nLocales do
     localeStdDev += ((localeTimes[i]-localeMeanTime)**2);
-  localeStdDev = (localeStdDev/nLocales);
-  localeStdDev = Math.sqrt(localeStdDev);
+  /*
+    TODO: Why do we get "error: unresolved call 'Math.sqrt(real(64))'" on
+    jupiter?
+  */
+  //localeStdDev = Math.sqrt(localeStdDev/nLocales);
+  localeStdDev = ((localeStdDev/nLocales)**(1.0/2.0));
 
   writeln("DistributedIters: total time by locale: ", localeTimesFormatted);
   writeln("DistributedIters: locale time (total, mean, stddev): (",
