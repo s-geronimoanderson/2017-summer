@@ -5,78 +5,61 @@
   Part of a 2017 Cray summer intern project by Sean I. Geronimo Anderson
   (sgeronimo@cray.com) as mentored by Ben Harshbarger (bharshbarg@cray.com).
 */
-/*
-  Control variables. These determine the test variables (defined later) and
-  provide control for checking correctness.
-*/
-config const coordinated:bool=false;
-config const n:int=100;
-
-var controlRange:range=0..#n;
-
-// Globals.
 use DistributedItersSandbox,
     Math,
     Random,
+    ReplicatedDist,
     Sort,
     Time;
-var timer:Timer;
+
+config const coordinated:bool=false;
+// n determines the iteration count.
+config const n:int=100;
+
+const controlRange:range = 0..#n;
 
 /*
   Iterate over a range that maps to a list of uniform random integers.
   Do some work proportional to the value of the integers.
 */
 writeln("Testing a uniformly random workload...");
-var uniformlyRandomWorkload:[controlRange] real=0.0;
-fillRandom(uniformlyRandomWorkload);
 
-proc arrayValueDistributionHistogram(arr:[]int, c)
-{ // Check distribution.
-  var firstQuarter,secondQuarter,thirdQuarter,fourthQuarter:int;
-  for i in uniformlyRandomWorkload do
-  {
-    const k:int=(i * n):int;
-    if k < n:real/4
-    then firstQuarter += 1;
-    else if k < n:real/2
-         then secondQuarter += 1;
-         else if k < n:real*3/4
-              then thirdQuarter += 1;
-              else fourthQuarter += 1;
-  }
-  writeln("0-", n:real/4 - 1/n:real, ": ", firstQuarter,
-          ", ", n:real/4, "-", n:real/2 - 1/n:real, ": ", secondQuarter,
-          ", ", n:real/2, "-", n:real*3/4 - 1/n:real, ": ", thirdQuarter,
-          ", ", n:real*3/4, "-", n:real - 1/n:real, ": ", fourthQuarter);
-}
+writeln("... guidedDistributed iterator, default-distributed array:");
+const defaultDistributedDomain:domain(1) = {controlRange};
+//testUniformlyRandomWorkload(defaultDistributedDomain);
 
-timer.start();
-forall i in guidedDistributed(controlRange, coordinated=coordinated) do
+proc testUniformlyRandomWorkload(c)
 {
-  const k:int=(uniformlyRandomWorkload[i] * n):int;
+  var timer:Timer;
+  var uniformlyRandomWorkload:[c]real = 0.0;
+  fillRandom(uniformlyRandomWorkload);
 
-  // Jupiter: 43 s with 4 tasks (n = 100,000)
-  piApproximate(k);
+  arrayValueDistributionHistogram(uniformlyRandomWorkload, c);
+  timer.start();
 
-  // Kaibab: 20 s with 4 tasks (n = 10,000)
-  //isPerfect(k:int);
+  forall i in guidedDistributed(c, coordinated=coordinated) do
+  {
+    const k:int=(uniformlyRandomWorkload[i] * n):int;
 
-  // Kaibab: 30 s with 4 tasks (n = 10,000)
-  /*
-    Not currently correct due to computer arithmetic, but does almost all the
-    work it would if it were correct, so it's useful as a dummy load.
-  */
-  //isHarmonicDivisor(k:int);
+    // Jupiter: 43 s with 4 tasks (n = 100,000)
+    piApproximate(k);
 
-  //var tempArray
-  //sort(tempArray);
+    // Kaibab: 20 s with 4 tasks (n = 10,000)
+    //isPerfect(k:int);
+
+    // Kaibab: 30 s with 4 tasks (n = 10,000)
+    //isHarmonicDivisor(k:int);
+  }
+
+  timer.stop();
+  writeln("Total time: ", timer.elapsed());
+  timer.clear();
 }
 
-timer.stop();
-writeln("Time to complete: ", timer.elapsed());
-timer.clear();
+//writeln("... guidedDistributed iterator, replicated array:");
 
-//checkCorrectness(uniformlyRandomWorkloadArray,controlRange);
+//writeln("... default (control) iterator, block-distributed array:");
+
 
 /*
   Iterate over a range that maps to values that are mostly the same except for
@@ -299,4 +282,25 @@ proc isHarmonicDivisor(n:int):bool
     procedure work... but currently it does not.
   */
   return harmonicMean == round(harmonicMean);
+}
+
+proc arrayValueDistributionHistogram(arr:[], c)
+{ // Write the given array's values histogram.
+  // TODO: Parameterize bin width?
+  var firstQuarter,secondQuarter,thirdQuarter,fourthQuarter:int;
+  for i in arr do
+  {
+    const k:int=(i * n):int;
+    if k < n:real/4
+    then firstQuarter += 1;
+    else if k < n:real/2
+         then secondQuarter += 1;
+         else if k < n:real*3/4
+              then thirdQuarter += 1;
+              else fourthQuarter += 1;
+  }
+  writeln("0-", n:real/4 - 1/n:real, ": ", firstQuarter,
+          ", ", n:real/4, "-", n:real/2 - 1/n:real, ": ", secondQuarter,
+          ", ", n:real/2, "-", n:real*3/4 - 1/n:real, ": ", thirdQuarter,
+          ", ", n:real*3/4, "-", n:real - 1/n:real, ": ", fourthQuarter);
 }

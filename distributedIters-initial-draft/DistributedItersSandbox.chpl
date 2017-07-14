@@ -286,6 +286,9 @@ where tag == iterKind.leader
                      else numLocales;
     var meitneriumIndex:atomic int;
     var localeTimes:[0..#numLocales]real = 0.0;
+    var totalTime:Timer;
+
+    totalTime.start();
 
     if debugDistributedIters
     then writeln("iterCount = ", iterCount,
@@ -300,15 +303,13 @@ where tag == iterKind.leader
          || L != masterLocale // coordinated == true
       then
       {
-        var overheadTime,totalTime:Timer;
-        totalTime.start();
+        var localeTime:Timer;
+        localeTime.start();
 
-        overheadTime.start();
         var localeStage:int = meitneriumIndex.fetchAdd(1);
         var localeRange:cType = guidedSubrange(denseRange,
                                                nLocales,
                                                localeStage);
-        overheadTime.stop();
         while localeRange.high <= denseRangeHigh do
         {
           const denseLocaleRange:cType = densify(localeRange, localeRange);
@@ -331,43 +332,17 @@ where tag == iterKind.leader
             yield (taskRange,);
           }
 
-          overheadTime.start();
           localeStage = meitneriumIndex.fetchAdd(1);
           localeRange = guidedSubrange(denseRange, nLocales, localeStage);
-          overheadTime.stop();
         }
-        totalTime.stop();
-        if true then
-        {
-          const overheadTimeElapsed = overheadTime.elapsed();
-          const totalTimeElapsed = totalTime.elapsed();
-          localeTimes[here.id] = totalTimeElapsed;
-          writeln("Distributed guided iterator (leader): ", here.locale,
-                  ": overheadTime/totalTime (",
-                  overheadTimeElapsed, "/",
-                  totalTimeElapsed, ") = ",
-                  overheadTimeElapsed/totalTimeElapsed);
-        }
+        localeTime.stop();
+        localeTimes[here.id] = localeTime.elapsed();
       }
     }
-    if true then
-    {
-      var localeTotalTime,localeMeanTime,localeStdDev:real;
-      for i in 0..#numLocales do
-      {
-        localeTotalTime += localeTimes[i];
-      }
-      localeMeanTime = localeTotalTime / nLocales;
-      for i in 0..#numLocales do
-      {
-        localeStdDev += (localeTimes[i] - localeMeanTime)**2;
-      }
-      localeStdDev = (localeStdDev/nLocales)**(1.0/2.0);
-      writeln("Distributed guided iterator (leader): ", here.locale,
-              ": mean (locale time) = ",
-              localeMeanTime, ", stddev (locale time): ",
-              localeStdDev, ".");
-    }
+    totalTime.stop();
+    if true then writeTimeStatistics(totalTime.elapsed(),
+                                     localeTimes,
+                                     coordinated);
   }
 }
 pragma "no doc"
@@ -443,6 +418,39 @@ private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
   }
   const subrange:c.type = low..#chunkSize;
   return subrange;
+}
+
+proc writeTimeStatistics(totalTime, localeTimes:[], coordinated)
+{
+  use Math;
+  const low:int = if coordinated && (numLocales > 1)
+                  then 1
+                  else 0;
+  const nLocales:int = if coordinated && (numLocales > 1)
+                       then (numLocales-1)
+                       else numLocales;
+  var localeTotalTime,localeMeanTime,localeStdDev:real;
+  var localeTimesFormatted:string = "";
+
+  for i in low..#nLocales do
+  {
+    const localeTime = localeTimes[i];
+    localeTotalTime += localeTime;
+    localeTimesFormatted += (i + ": " + localeTime + (if i == nLocales
+                                                      then ", "
+                                                      else ""));
+  }
+  localeMeanTime = (localeTotalTime/nLocales);
+
+  for i in low..#nLocales do
+    localeStdDev += ((localeTimes[i]-localeMeanTime)**2);
+  localeStdDev = Math.sqrt(localeStdDev/nLocales);
+
+  writeln("DistributedIters: total time by locale: ", localeTimesFormatted);
+  writeln("DistributedIters: locale time (total, mean, stddev): (",
+          totalTime, ", ",
+          localeMeanTime, ", ",
+          localeStdDev, ").");
 }
 
 } // End of module.
