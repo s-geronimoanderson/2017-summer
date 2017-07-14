@@ -187,7 +187,8 @@ inline proc populateInputTypeInfo(c, ref inputType, ref inputTypeStr)
       inputType = inputTypeEnum.Array;
       inputTypeStr = "array";
     }
-    otherwise compilerError("distributed: expected range, domain, or array",
+    otherwise compilerError("DistributedIters: expected range, domain, or "
+                            + "array",
                             1);
   }
 }
