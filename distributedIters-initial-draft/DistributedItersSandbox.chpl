@@ -433,13 +433,14 @@ proc writeTimeStatistics(totalTime, localeTimes:[], coordinated)
   var localeMeanTime,localeStdDev,localeTotalTime:real;
   var localeTimesFormatted:string = "";
 
-  for i in low..#nLocales do
+  const localeRange:range = low..#nLocales;
+  for i in localeRange do
   {
     const localeTime = localeTimes[i];
     localeTotalTime += localeTime;
-    localeTimesFormatted += (i + ": " + localeTime + (if i == nLocales
-                                                      then ", "
-                                                      else ""));
+    localeTimesFormatted += (i + ": " + localeTime + (if i == localeRange.high
+                                                      then ""
+                                                      else ", "));
   }
   localeMeanTime = (localeTotalTime/nLocales);
 
