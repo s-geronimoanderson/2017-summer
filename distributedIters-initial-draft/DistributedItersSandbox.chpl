@@ -430,7 +430,7 @@ proc writeTimeStatistics(totalTime, localeTimes:[], coordinated)
   const nLocales:int = if coordinated && (numLocales > 1)
                        then (numLocales-1)
                        else numLocales;
-  var localeTotalTime,localeMeanTime,localeStdDev:real;
+  var localeMeanTime,localeStdDev,localeTotalTime:real;
   var localeTimesFormatted:string = "";
 
   for i in low..#nLocales do
@@ -445,7 +445,8 @@ proc writeTimeStatistics(totalTime, localeTimes:[], coordinated)
 
   for i in low..#nLocales do
     localeStdDev += ((localeTimes[i]-localeMeanTime)**2);
-  localeStdDev = Math.sqrt(localeStdDev/nLocales);
+  localeStdDev = (localeStdDev/nLocales);
+  localeStdDev = Math.sqrt(localeStdDev);
 
   writeln("DistributedIters: total time by locale: ", localeTimesFormatted);
   writeln("DistributedIters: locale time (total, mean, stddev): (",
