@@ -25,8 +25,9 @@ const controlRange:range = 0..#n;
 writeln("Testing a uniformly random workload...");
 
 writeln("... guidedDistributed iterator, default-distributed array:");
-const defaultDistributedDomain:domain(1) = {controlRange};
+//const defaultDistributedDomain:domain(1) = {controlRange};
 //testUniformlyRandomWorkload(defaultDistributedDomain);
+testUniformlyRandomWorkload(controlRange);
 
 proc testUniformlyRandomWorkload(c)
 {
