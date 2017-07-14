@@ -27,9 +27,11 @@ writeln("Testing a uniformly random workload...");
 writeln("... guidedDistributed iterator, default-distributed array:");
 //const defaultDistributedDomain:domain(1) = {controlRange};
 //testUniformlyRandomWorkload(defaultDistributedDomain);
-testUniformlyRandomWorkload(controlRange);
+testUniformlyRandomWorkload(controlRange,
+                            guidedDistributed(controlRange,
+                                              coordinated=coordinated));
 
-proc testUniformlyRandomWorkload(c)
+proc testUniformlyRandomWorkload(c, iterator)
 {
   var timer:Timer;
   var uniformlyRandomWorkload:[c]real = 0.0;
@@ -38,7 +40,8 @@ proc testUniformlyRandomWorkload(c)
   arrayValueDistributionHistogram(uniformlyRandomWorkload, c);
   timer.start();
 
-  forall i in guidedDistributed(c, coordinated=coordinated) do
+  //forall i in guidedDistributed(c, coordinated=coordinated) do
+  forall i in iterator do
   {
     const k:int=(uniformlyRandomWorkload[i] * n):int;
 
