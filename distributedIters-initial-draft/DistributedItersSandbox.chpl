@@ -24,7 +24,6 @@
 module DistributedItersSandbox
 {
 use DynamicIters,
-    Math,
     Time;
 
 // Toggle debugging output.
@@ -366,6 +365,153 @@ where tag == iterKind.follower
   for i in current do yield i;
 }
 
+
+
+// Valid input types.
+/*
+enum inputTypeEnum
+{
+  Range,
+  Domain,
+  Array
+};
+*/
+
+// Distributed Guided Iterator.
+/*
+  :arg c: The range (or domain or array) to iterate over. The length of the
+          range (domain, array) must be greater than zero.
+  :type c: `range(?)` (`domain`, `array`)
+
+  :yields: Indices in the range (domain, array) ``c``.
+
+  Given an input range (domain, array) ``c``, yields successive contiguous
+  subsets of size ``chunkSize`` from ``c`` (or the remainder of ``c`` if
+  smaller than ``chunkSize``).
+*/
+// Serial version.
+iter distributedGuided(c,
+                       numTasks:int=0,
+                       parDim:int=1)
+{
+  const localC:c.type=if isArray(c)
+                      then c.localSubdomain()
+                      else c;
+  type cType=c.type;
+
+  if debugDistributedIters then
+  {
+    writeln("Distributed iterator: serial, working with ",
+            cType, ": ", localC);
+  }
+
+  for i in localC
+  {
+    yield i;
+  }
+}
+
+/*
+// Zippered leader.
+pragma "no doc"
+iter distributedGuided(param tag:iterKind,
+                       c,
+                       numTasks:int=0,
+                       parDim:int=1)
+where tag == iterKind.leader
+{
+  var inputType:inputTypeEnum;
+  var inputTypeStr:string;
+  populateInputTypeInfo(c, inputType, inputTypeStr);
+
+  // Iterator.
+  // Caller's responsibility to use a valid domain.
+  assert(c.rank > 0, "Must use a valid domain");
+
+  // Caller's responsibility to use a valid parDim.
+  assert(parDim <= c.rank, "parDim must be a dimension of the domain");
+  assert(parDim > 0, "parDim must be a positive integer");
+
+  var parDimDim = c.dim(parDim);
+
+  for i in guided(tag=iterKind.leader, parDimDim, numTasks)
+  {
+    // Set the new range based on the tuple the guided 1-D iterator yields.
+    var newRange = i(1);
+
+    type cType = c.type;
+    // Regularize. "We can't use densify because it makes a stridable domain,
+    // which mismatches here if c (and thus cType) is non-stridable."
+    var tempDom : cType = computeZeroBasedDomain(c);
+
+    // "Rank-change slice the domain along parDim"
+    var tempTup = tempDom.dims();
+    // Change the value of the parDim elem of the tuple to the new range
+    tempTup(parDim) = newRange;
+
+    yield tempTup;
+  }
+}
+*/
+
+/*
+// Zippered follower.
+pragma "no doc"
+iter distributedGuided(param tag:iterKind,
+                       c,
+                       numTasks:int,
+                       parDim:int,
+                       followThis)
+where tag == iterKind.follower
+{
+  var inputType:inputTypeEnum;
+  var inputTypeStr:string;
+  populateInputTypeInfo(c, inputType, inputTypeStr);
+
+  if debugDistributedIters then
+  {
+    var inputVal = if isArray(c)
+                   then "(array contents hidden)"
+                   else c;
+    writeln("Distributed Iterator: Follower received ",
+            inputTypeStr, ": ", inputVal);
+  }
+
+  select true
+  {
+    when
+  }
+}
+*/
+
+// Helpers.
+inline proc populateInputTypeInfo(c, ref inputType, ref inputTypeStr)
+{
+  select true
+  {
+    when isRange(c)
+    {
+      inputType = inputTypeEnum.Range;
+      inputTypeStr = "range";
+    }
+    when isDomain(c)
+    {
+      inputType = inputTypeEnum.Domain;
+      inputTypeStr = "domain";
+    }
+    when isArray(c)
+    {
+      inputType = inputTypeEnum.Array;
+      inputTypeStr = "array";
+    }
+    otherwise compilerError("DistributedIters: expected range, domain, or "
+                            + "array",
+                            1);
+  }
+}
+
+
+
 // Helpers.
 
 private proc defaultNumTasks(nTasks:int)
@@ -401,7 +547,8 @@ private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
   This function takes a range, a worker count, and a stage, and simulates
   performing OpenMP's guided schedule on the range with the given worker count
   until reaching the given stage. It then returns the subrange that the guided
-  schedule would have produced at that point.
+  schedule would have produced at that point. The simulation overhead is
+  insignificant.
 */
 {
   assert(workerCount > 0, "'workerCount' must be positive");
@@ -446,11 +593,6 @@ proc writeTimeStatistics(totalTime, localeTimes:[], coordinated)
 
   for i in low..#nLocales do
     localeStdDev += ((localeTimes[i]-localeMeanTime)**2);
-  /*
-    TODO: Why do we get "error: unresolved call 'Math.sqrt(real(64))'" on
-    jupiter?
-  */
-  //localeStdDev = Math.sqrt(localeStdDev/nLocales);
   localeStdDev = ((localeStdDev/nLocales)**(1.0/2.0));
 
   writeln("DistributedIters: total time by locale: ", localeTimesFormatted);

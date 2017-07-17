@@ -5,7 +5,8 @@
   Part of a 2017 Cray summer intern project by Sean I. Geronimo Anderson
   (sgeronimo@cray.com) as mentored by Ben Harshbarger (bharshbarg@cray.com).
 */
-use DistributedItersSandbox,
+use BlockDist,
+    DistributedItersSandbox,
     Math,
     Random,
     ReplicatedDist,
@@ -17,6 +18,7 @@ config const coordinated:bool=false;
 config const n:int=100;
 
 const controlRange:range = 0..#n;
+const controlDomain:domain(1) = {controlRange};
 
 /*
   Iterate over a range that maps to a list of uniform random integers.
@@ -24,12 +26,14 @@ const controlRange:range = 0..#n;
 */
 writeln("Testing a uniformly random workload...");
 
+/* Works fine.
 writeln("... guidedDistributed iterator, default-distributed array:");
 //const defaultDistributedDomain:domain(1) = {controlRange};
 //testUniformlyRandomWorkload(defaultDistributedDomain);
-testUniformlyRandomWorkload(controlRange,
-                            guidedDistributed(controlRange,
-                                              coordinated=coordinated));
+testUniformlyRandomWorkload(c=controlRange,
+                            iterator=guidedDistributed(controlRange,
+                                                       coordinated=coordinated));
+*/
 
 proc testUniformlyRandomWorkload(c, iterator)
 {
@@ -62,7 +66,36 @@ proc testUniformlyRandomWorkload(c, iterator)
 
 //writeln("... guidedDistributed iterator, replicated array:");
 
-//writeln("... default (control) iterator, block-distributed array:");
+writeln("... default (control) iterator, block-distributed array:");
+const blockDistributedDomain:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
+testUniformlyRandomWorkload(c=blockDistributedDomain);
+
+proc testUniformlyRandomWorkload(c)
+{
+  var timer:Timer;
+  var uniformlyRandomWorkload:[c]real = 0.0;
+  fillRandom(uniformlyRandomWorkload);
+  arrayValueDistributionHistogram(uniformlyRandomWorkload, c);
+
+  timer.start();
+  forall v in uniformlyRandomWorkload do
+  {
+    const k:int = (v*n):int;
+
+    // Jupiter: 43 s with 4 tasks (n = 100,000)
+    piApproximate(k);
+
+    // Kaibab: 20 s with 4 tasks (n = 10,000)
+    //isPerfect(k:int);
+
+    // Kaibab: 30 s with 4 tasks (n = 10,000)
+    //isHarmonicDivisor(k:int);
+  }
+  timer.stop();
+
+  writeln("Total time: ", timer.elapsed());
+  timer.clear();
+}
 
 
 /*

@@ -18,7 +18,8 @@ config const coordinated:bool=false;
 config const n:int=1000;
 config const numTasks:int=0;
 
-var controlRange:range=1..n;
+const controlRange:range = 1..n;
+const controlDomain:domain(1) = {controlRange};
 
 // Variations.
 /*
@@ -28,6 +29,41 @@ var controlStridedCountedRange=controlStridedRange # 5;
 var controlAlignedRange=controlStridedRange align 1;
 var controlDomain:domain(1)={controlRange};
 */
+
+/*
+  Serial version.
+*/
+writeln("Testing distributed guided iterator, serial version:");
+// Range.
+writeln("Testing range...");
+var rangeDistributedGuidedArray:[controlRange] int=0;
+const testRange:range = controlRange;
+for i in distributedGuided(testRange) do
+  rangeDistributedGuidedArray[i] = (rangeDistributedGuidedArray[i]+1);
+checkCorrectness(rangeDistributedGuidedArray,controlRange);
+
+// Domain.
+writeln("Testing domain...");
+var domainDistributedGuidedArray:[controlRange] int=0;
+const testDomain:domain(1) = controlDomain;
+for i in distributedGuided(testDomain) do
+  domainDistributedGuidedArray[i] = (domainDistributedGuidedArray[i]+1);
+checkCorrectness(domainDistributedGuidedArray,controlRange);
+
+// Array (single).
+writeln("Testing single array...");
+var sameDistributedGuidedArray:[controlRange] int=0;
+for i in distributedGuided(sameDistributedGuidedArray) do
+  sameDistributedGuidedArray[i] = (sameDistributedGuidedArray[i]+1);
+checkCorrectness(sameDistributedGuidedArray,controlRange);
+
+// Array (separate).
+writeln("Testing separate array...");
+var separateDistributedGuidedArray:[controlRange] int=0;
+const testArray:[controlDomain]int;
+for i in distributedGuided(testArray) do
+  separateDistributedGuidedArray[i] = (separateDistributedGuidedArray[i]+1);
+checkCorrectness(separateDistributedGuidedArray,controlRange);
 
 /*
   Ranges.
@@ -42,7 +78,7 @@ for i in distributed(controlRange) do
 checkCorrectness(testRangeArray,controlRange);
 */
 
-
+/* // Works fine.
 writeln("Testing a range (distributed guided iterator)...");
 var testGuidedDistributedRangeArray:[controlRange] int=0;
 timer.start();
@@ -66,6 +102,9 @@ writeln("Time (", n, "): ", timer.elapsed());
 timer.clear();
 
 //checkCorrectness(testReferenceGuidedRangeArray,controlRange);
+*/ // End works fine.
+
+
 
 //recreationVersion(n);
 
