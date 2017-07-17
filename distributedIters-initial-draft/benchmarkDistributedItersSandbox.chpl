@@ -24,6 +24,7 @@ const controlDomain:domain(1) = {controlRange};
   Iterate over a range that maps to a list of uniform random integers.
   Do some work proportional to the value of the integers.
 */
+// Default distribution.
 writeln("Testing a uniformly random workload...");
 
 /* Works fine.
@@ -64,8 +65,42 @@ proc testUniformlyRandomWorkload(c, iterator)
   timer.clear();
 }
 
-//writeln("... guidedDistributed iterator, replicated array:");
+// Replicated distribution.
+//writeln("... guidedDistributed iterator, replicated distribution:");
+testReplicatedUniformlyRandomWorkload(c=controlRange,
+                                      iterator=guidedDistributed(controlRange,
+                                                                 coordinated=coordinated));
 
+proc testReplicatedUniformlyRandomWorkload(c, iterator)
+{
+  const cReplicated:domain(1) dmapped ReplicatedDist() = c;
+  var timer:Timer;
+  var uniformlyRandomWorkload:[cReplicated]real = 0.0;
+  fillRandom(uniformlyRandomWorkload);
+  arrayValueDistributionHistogram(uniformlyRandomWorkload,
+                                  cReplicated);
+
+  timer.start();
+  forall i in iterator do
+  {
+    const k:int=(uniformlyRandomWorkload[i] * n):int;
+
+    // Jupiter: 43 s with 4 tasks (n = 100,000)
+    piApproximate(k);
+
+    // Kaibab: 20 s with 4 tasks (n = 10,000)
+    //isPerfect(k:int);
+
+    // Kaibab: 30 s with 4 tasks (n = 10,000)
+    //isHarmonicDivisor(k:int);
+  }
+  timer.stop();
+  writeln("Total time: ", timer.elapsed());
+  timer.clear();
+}
+
+// Control: Block-distributed array, default iterator.
+/*
 writeln("... default (control) iterator, block-distributed array:");
 const blockDistributedDomain:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
 testUniformlyRandomWorkload(c=blockDistributedDomain);
@@ -92,11 +127,10 @@ proc testUniformlyRandomWorkload(c)
     //isHarmonicDivisor(k:int);
   }
   timer.stop();
-
   writeln("Total time: ", timer.elapsed());
   timer.clear();
 }
-
+*/
 
 /*
   Iterate over a range that maps to values that are mostly the same except for
