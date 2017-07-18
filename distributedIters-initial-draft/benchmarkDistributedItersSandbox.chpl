@@ -155,7 +155,7 @@ const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
 //testUniformlyRandomWorkload(replicatedDomain);
 var arrayPreparationTime:Timer;
 arrayPreparationTime.start();
-var uniformlyRandomWorkload:[replicatedDomain]real;
+var uniformlyRandomWorkload:[controlDomain]real;
 fillRandom(uniformlyRandomWorkload);
 writeArrayValueHistogram(uniformlyRandomWorkload);
 arrayPreparationTime.stop();
