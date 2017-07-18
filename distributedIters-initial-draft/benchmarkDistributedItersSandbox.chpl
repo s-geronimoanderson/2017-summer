@@ -36,12 +36,12 @@ testUniformlyRandomWorkload(c=controlRange,
                                                        coordinated=coordinated));
 */
 
-/* Works fine.
+///* Works fine.
 writeln("... guidedDistributed iterator, default-distributed domain:");
 testUniformlyRandomWorkload(c=controlDomain,
                             iterator=guidedDistributed(controlDomain,
                                                        coordinated=coordinated));
-*/
+//*/
 
 proc testUniformlyRandomWorkload(c, iterator)
 {
@@ -72,10 +72,11 @@ proc testUniformlyRandomWorkload(c, iterator)
   timer.clear();
 }
 
+/*
 writeln("... guidedDistributed iterator, replicated distribution:");
 const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
 testUniformlyRandomWorkload(replicatedDomain);
-
+*/
 
 
 proc testUniformlyRandomWorkload(c)
