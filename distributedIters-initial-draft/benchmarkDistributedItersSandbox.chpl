@@ -85,39 +85,38 @@ var Abase: [Dbase] int;
 var Arepl: [Drepl] int;
 
 writeln("Initial.");
-writeln(Arepl);
-writeln(Abase);
+writeln("Abase: ", Abase);
+writeln("Arepl: ", Arepl);
 
 // only the current locale's replicand is accessed
 Arepl[3] = 4;
 writeln("Arepl[3] = 4;");
-writeln(Arepl);
-writeln(Abase);
+writeln("Abase: ", Abase);
+writeln("Arepl: ", Arepl);
 
 // these iterate over Dbase;
 // only the current locale's replicand is accessed
 forall (b,r) in zip(Abase,Arepl) do b = r;
 writeln("forall (b,r) in zip(Abase,Arepl) do b = r;");
-writeln(Arepl);
-writeln(Abase);
+writeln("Abase: ", Abase);
+writeln("Arepl: ", Arepl);
 
 Abase = Arepl;
 writeln("Abase = Arepl;");
-writeln(Arepl);
-writeln(Abase);
-
+writeln("Abase: ", Abase);
+writeln("Arepl: ", Arepl);
 
 // these iterate over Drepl; each replicand of Drepl
 // will be zippered against (and copied from) the entire Abase
 forall (r,b) in zip(Arepl,Abase) do r = b;
 writeln("forall (r,b) in zip(Arepl,Abase) do r = b;");
-writeln(Arepl);
-writeln(Abase);
+writeln("Abase: ", Abase);
+writeln("Arepl: ", Arepl);
 
 Arepl = Abase;
 writeln("Arepl = Abase;");
-writeln(Arepl);
-writeln(Abase);
+writeln("Abase: ", Abase);
+writeln("Arepl: ", Arepl);
 
 
 
