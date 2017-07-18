@@ -73,8 +73,8 @@ proc testUniformlyRandomWorkload(c, iterator)
 }
 
 writeln("... guidedDistributed iterator, replicated distribution:");
-const replicatedControlDomain:domain(1) dmapped Replicated() = controlDomain;
-testUniformlyRandomWorkload(replicatedControlDomain);
+const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
+testUniformlyRandomWorkload(replicatedDomain);
 
 
 
