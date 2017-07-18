@@ -197,21 +197,20 @@ inline proc populateInputTypeInfo(c, ref inputType, ref inputTypeStr)
 // Guided Distributed Iterator.
 /*
   :arg c: The range to iterate over. The length of the range must be greater
-          than zero.
+    than zero.
   :type c: `range(?)`
 
   :arg numTasks: The number of tasks to use. Must be >= zero. If this argument
-                 has the value 0, the iterator will use the value indicated by
-                 ``dataParTasksPerLocale``.
+    has value 0, the iterator will use the value indicated by
+    ``dataParTasksPerLocale``.
   :type numTasks: `int`
 
-  :arg minChunkSize: The smallest allowable chunk size. Must be >= zero. If
-                     this argument has the value 0, the iterator will use the
-                     input range length divided by ``numLocales``.
+  :arg minChunkSize: The smallest allowable chunk size. Must be >= one. Default
+    is one.
   :type minChunkSize: `int`
 
   :arg coordinated: Have locale 0 coordinate task distribution only; disallow
-                    it from receiving work. (If true and multi-locale.)
+    it from receiving work. (If true and multi-locale.)
   :type coordinated: `bool`
 
   :yields: Indices in the range ``c``.
@@ -232,6 +231,7 @@ inline proc populateInputTypeInfo(c, ref inputType, ref inputTypeStr)
 // Serial version.
 iter guidedDistributed(c:range(?),
                        numTasks:int=0,
+                       minChunkSize:int=1,
                        coordinated:bool=false)
 {
   if debugDistributedIters
@@ -245,6 +245,7 @@ iter guidedDistributed(c:range(?),
 iter guided(param tag:iterKind,
             c:range(?),
             numTasks:int=0,
+            minChunkSize:int=1,
             coordinated:bool=false)
 where tag == iterKind.standalone
 {
@@ -260,6 +261,7 @@ pragma "no doc"
 iter guidedDistributed(param tag:iterKind,
                        c:range(?),
                        numTasks:int=0,
+                       minChunkSize:int=1,
                        coordinated:bool=false)
 where tag == iterKind.leader
 {
@@ -350,6 +352,7 @@ pragma "no doc"
 iter guidedDistributed(param tag:iterKind,
                        c:range(?),
                        numTasks:int,
+                       minChunkSize:int=1,
                        coordinated:bool=false,
                        followThis)
 where tag == iterKind.follower
@@ -365,6 +368,137 @@ where tag == iterKind.follower
   for i in current do yield i;
 }
 
+// Guided Distributed Domain Iterator.
+/*
+  :arg c: The domain to iterate over. The domain rank must be greater than
+    zero.
+  :type c: `domain`
+
+  :arg numTasks: The number of tasks to use. Must be >= zero. If this argument
+    has value 0, the iterator will use the value indicated by
+    ``dataParTasksPerLocale``.
+  :type numTasks: `int`
+
+  :arg parDim: The index of the dimension to parallelize across. Must be > 0,
+    and must be <= the rank of the domain ``c``. Defaults to 1.
+  :type parDim: `int`
+
+  :arg minChunkSize: The smallest allowable chunk size. Must be >= one.
+    Defaults to 1.
+  :type minChunkSize: `int`
+
+  :arg coordinated: Have locale 0 coordinate task distribution only; disallow
+    it from receiving work. (If true and multi-locale.)
+  :type coordinated: `bool`
+
+  :yields: Indices in the domain ``c``.
+
+  This iterator is equivalent to a distributed version of the guided policy of
+  OpenMP: Given an input domain ``c``, each locale (except the calling locale)
+  receives chunks of approximately exponentially decreasing size, until the
+  remaining iterations reaches a minimum value, ``minChunkSize``, or there are
+  no remaining iterations in ``c``. The chunk size is the number of unassigned
+  iterations divided by the number of locales. Each locale then distributes
+  sub-chunks as tasks, where each sub-chunk size is the number of unassigned
+  local iterations divided by the number of tasks, ``numTasks``, and decreases
+  approximately exponentially to 1. The splitting strategy is therefore
+  adaptive.
+
+  This iterator is available for serial and zippered contexts.
+*/
+// Serial version.
+iter guidedDistributed(c:domain,
+                       numTasks:int=0,
+                       parDim:int=1,
+                       minChunkSize:int=1,
+                       coordinated:bool=false)
+{
+  if debugDistributedIters
+  then writeln("DistributedIters: Distributed guided domain iterator ",
+               "(serial): ", here.locale, ": working with domain ", c);
+  for i in c do yield i;
+}
+
+// Zippered leader.
+pragma "no doc"
+iter guidedDistributed(param tag:iterKind,
+                       c:domain,
+                       numTasks:int=0,
+                       parDim:int=1,
+                       minChunkSize:int=1,
+                       coordinated:bool=false)
+where tag == iterKind.leader
+{
+  assert(c.rank > 0, "Must use a valid domain");
+  assert(parDim <= c.rank, "parDim must be a dimension of the domain");
+  assert(parDim > 0, "parDim must be a positive integer");
+
+  var parDimDim = c.dim(parDim);
+
+  for i in guidedDistributed(tag=iterKind.leader,
+                             c=parDimDim,
+                             numTasks=numTasks,
+                             minChunkSize=minChunkSize,
+                             coordinated=coordinated)
+  {
+    // Set the new range based on the tuple the guided 1-D iterator yields.
+    var newRange = i(1);
+
+    type cType = c.type;
+    // Does the same thing as densify, but densify makes a stridable domain,
+    // which mismatches here if c (and thus cType) is non-stridable.
+    var tempDom : cType = computeZeroBasedDomain(c);
+
+    // Rank-change slice the domain along parDim
+    var tempTup = tempDom.dims();
+    // Change the value of the parDim elem of the tuple to the new range
+    tempTup(parDim) = newRange;
+
+    /* // TODO: Do we even need this?
+    writeln("Distributed guided iterator (leader): ",
+            here.locale, ": yielding ",
+            unDensify(taskRange,c),
+            " (", taskRange.length,
+            "/", localeRange.length,
+            " locale-owned of ", iterCount, " total)",
+            " as ", taskRange);
+    */
+
+    yield tempTup;
+  }
+}
+
+// Zippered follower.
+pragma "no doc"
+iter guidedDistributed(param tag:iterKind,
+                       c:domain,
+                       numTasks:int,
+                       parDim:int=1,
+                       minChunkSize:int,
+                       coordinated:bool,
+                       followThis)
+where tag == iterKind.follower
+{
+  const current = c._value.these(tag=iterKind.follower, followThis=followThis);
+
+  /* // TODO: Try this.
+  if debugDistributedIters
+  then writeln("DistributedIters: Distributed guided domain iterator ",
+               "(follower): ", here.locale, ": ",
+               "received domain ", followThis,
+               " (", current.length, "/", c.length, ")",
+               "; shifting to ", current);
+  */
+
+  for i in current do yield i;
+}
+
+
+
+
+
+
+
 
 
 // Valid input types.
@@ -379,37 +513,99 @@ enum inputTypeEnum
 
 // Distributed Guided Iterator.
 /*
-  :arg c: The range (or domain or array) to iterate over. The length of the
-          range (domain, array) must be greater than zero.
+  :arg c: The range (or domain or array) to iterate over. The range (domain,
+    array) must have size greater than zero.
   :type c: `range(?)` (`domain`, `array`)
+
+  :arg numTasks: The number of tasks to use. Must be >= zero. If this argument
+    has value 0, the iterator will use the value indicated by
+    ``dataParTasksPerLocale``.
+  :type numTasks: `int`
+
+  :arg parDim: If ``c`` is a domain, this specifies the index of the dimension
+    to parallelize across. Must be > 0, and must be <= the rank of the domain
+    ``c``. Defaults to 1.
+  :type parDim: `int`
+
+  :arg minChunkSize: The smallest allowable chunk size. Must be >= one.
+    Defaults to 1.
+  :type minChunkSize: `int`
+
+  :arg coordinated: Have locale 0 coordinate task distribution only; disallow
+    it from receiving work. (If true and multi-locale.)
+  :type coordinated: `bool`
 
   :yields: Indices in the range (domain, array) ``c``.
 
-  Given an input range (domain, array) ``c``, yields successive contiguous
-  subsets of size ``chunkSize`` from ``c`` (or the remainder of ``c`` if
-  smaller than ``chunkSize``).
+  This iterator is equivalent to a distributed version of the guided policy of
+  OpenMP: Given an input range ``c``, each locale (except the calling locale)
+  receives chunks of approximately exponentially decreasing size, until the
+  remaining iterations reaches a minimum value, ``minChunkSize``, or there are
+  no remaining iterations in ``c``. The chunk size is the number of unassigned
+  iterations divided by the number of locales. Each locale then distributes
+  sub-chunks as tasks, where each sub-chunk size is the number of unassigned
+  local iterations divided by the number of tasks, ``numTasks``, and decreases
+  approximately exponentially to 1. The splitting strategy is therefore
+  adaptive.
+
+  This iterator is available for serial and zippered contexts.
 */
+
+/* This is a work-in-progress.
 // Serial version.
 iter distributedGuided(c,
                        numTasks:int=0,
-                       parDim:int=1)
+                       parDim:int=1,
+                       minChunkSize:int=1,
+                       coordinated:bool=false)
 {
-  const localC:c.type=if isArray(c)
-                      then c.localSubdomain()
-                      else c;
-  type cType=c.type;
+  const cValidatedType:ValidatedType = validateType(c);
 
-  if debugDistributedIters then
-  {
-    writeln("Distributed iterator: serial, working with ",
-            cType, ": ", localC);
-  }
+  const isArrayC:bool = isArray(c);
+  const isRangeC:bool = isRange(c);
+  const localC = if isRangeC
+                 then {c}:domain(1)
+                 else c.localSubdomain();
 
-  for i in localC
-  {
-    yield i;
-  }
+  const cValidatedType:ValidatedType = validateType(c);
+
+
+  if debugDistributedIters
+  then writeln("DistributedIters: Distributed guided iterator (serial): ",
+               cValidatedType);
+
+  if isArrayC
+  then for i in localC do yield c[i];
+  else for i in localC do yield i;
 }
+
+// Valid input types.
+enum ValidatedType
+{
+  Range,
+  Domain,
+  Array
+};
+
+proc validateType(c)
+{
+  var cValidatedType:ValidatedType;
+  select true
+  {
+    when isRange(c) do cValidatedType = ValidatedType.Range;
+    when isDomain(c) do cValidatedType = ValidatedType.Domain;
+    when isArray(c) do cValidatedType = ValidatedType.Array;
+    otherwise compilerError("DistributedIters: expected range, domain, or "
+                            + "array",
+                            1);
+  }
+  return cValidatedType;
+}
+*/
+
+
+
+
 
 /*
 // Zippered leader.
@@ -417,6 +613,7 @@ pragma "no doc"
 iter distributedGuided(param tag:iterKind,
                        c,
                        numTasks:int=0,
+                       minChunkSize:int=1,
                        parDim:int=1)
 where tag == iterKind.leader
 {
@@ -454,6 +651,10 @@ where tag == iterKind.leader
 }
 */
 
+
+
+
+
 /*
 // Zippered follower.
 pragma "no doc"
@@ -461,54 +662,51 @@ iter distributedGuided(param tag:iterKind,
                        c,
                        numTasks:int,
                        parDim:int,
+                       minChunkSize:int=1,
+                       coordinated:bool=false,
                        followThis)
 where tag == iterKind.follower
 {
-  var inputType:inputTypeEnum;
-  var inputTypeStr:string;
-  populateInputTypeInfo(c, inputType, inputTypeStr);
+  const localC = if isArray(c)
+                 then c.localSubdomain()
+                 else c;
+  const cValidatedType:ValidatedType = validateType(c);
 
-  if debugDistributedIters then
+  select cValidatedType
   {
-    var inputVal = if isArray(c)
-                   then "(array contents hidden)"
-                   else c;
-    writeln("Distributed Iterator: Follower received ",
-            inputTypeStr, ": ", inputVal);
+    when ValidatedType.Range
+    when ValidatedType.Domain
+    when ValidatedType.Array
   }
 
-  select true
-  {
-    when
-  }
+  if debugDistributedIters
+  then writeln("DistributedIters: Distributed guided iterator (follower): ",
+               cValidatedType, ": ", here.locale, ": ",
+               "received range ", followThis,
+               " (", current.length, "/", c.length, ")",
+               "; shifting to ", current);
+
+}
+pragma "no doc"
+iter guidedDistributed(param tag:iterKind,
+                       c:range(?),
+                       numTasks:int,
+                       minChunkSize:int=1,
+                       coordinated:bool=false,
+                       followThis)
+where tag == iterKind.follower
+{
+  const current:c.type=unDensify(followThis(1),c);
+
+  if debugDistributedIters
+  then writeln("Distributed guided iterator (follower): ", here.locale, ": ",
+               "received range ", followThis,
+               " (", current.length, "/", c.length, ")",
+               "; shifting to ", current);
+
+  for i in current do yield i;
 }
 */
-
-// Helpers.
-inline proc populateInputTypeInfo(c, ref inputType, ref inputTypeStr)
-{
-  select true
-  {
-    when isRange(c)
-    {
-      inputType = inputTypeEnum.Range;
-      inputTypeStr = "range";
-    }
-    when isDomain(c)
-    {
-      inputType = inputTypeEnum.Domain;
-      inputTypeStr = "domain";
-    }
-    when isArray(c)
-    {
-      inputType = inputTypeEnum.Array;
-      inputTypeStr = "array";
-    }
-    otherwise compilerError("DistributedIters: expected range, domain, or "
-                            + "array",
-                            1);
-  }
-}
 
 
 
@@ -528,7 +726,10 @@ private proc defaultNumTasks(nTasks:int)
   return dnTasks;
 }
 
-private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
+private proc guidedSubrange(c:range(?),
+                            workerCount:int,
+                            stage:int,
+                            minChunkSize:int=1)
 /*
   :arg c: The range from which to retrieve a guided subrange.
   :type c: `range(?)`
@@ -541,6 +742,10 @@ private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
   :arg stage: The number of guided subranges to skip before returning a guided
               subrange.
   :type stage: `int`
+
+  :arg minChunkSize: The smallest allowable chunk size. Must be >= 1. Defaults
+    to 1.
+  :type minChunkSize: `int`
 
   :returns: A subrange of ``c``.
 
@@ -560,9 +765,9 @@ private proc guidedSubrange(c:range(?), workerCount:int, stage:int)
   {
     low += chunkSize;
     chunkSize = remainder / workerCount;
-    chunkSize = if chunkSize >= 1
+    chunkSize = if chunkSize >= minChunkSize
                 then chunkSize
-                else 1;
+                else minChunkSize;
     remainder -= chunkSize;
   }
   const subrange:c.type = low..#chunkSize;
