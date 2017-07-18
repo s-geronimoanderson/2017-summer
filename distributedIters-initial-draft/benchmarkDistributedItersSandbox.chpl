@@ -49,7 +49,7 @@ proc testUniformlyRandomWorkload(c, iterator)
   var uniformlyRandomWorkload:[c]real = 0.0;
   fillRandom(uniformlyRandomWorkload);
 
-  writeArrayValueHistogram(uniformlyRandomWorkload, c);
+  writeArrayValueHistogram(uniformlyRandomWorkload);
   timer.start();
 
   //forall i in guidedDistributed(c, coordinated=coordinated) do
@@ -74,11 +74,41 @@ proc testUniformlyRandomWorkload(c, iterator)
 
 
 
-
+/*
 writeln("... guidedDistributed iterator, default-distributed domain:");
 testUniformlyRandomWorkload(controlDomain);
+*/
+
+proc testUniformlyRandomWorkload(c)
+{
+  var timer:Timer;
+  var uniformlyRandomWorkload:[c]real = 0.0;
+
+  fillRandom(uniformlyRandomWorkload);
+  writeArrayValueHistogram(uniformlyRandomWorkload);
+
+  timer.start();
+  forall i in guidedDistributed(c, coordinated=coordinated) do
+  {
+    const k:int = (uniformlyRandomWorkload[i] * n):int;
+
+    // Jupiter: 43 s with 4 tasks (n = 100,000)
+    piApproximate(k);
+
+    // Kaibab: 20 s with 4 tasks (n = 10,000)
+    //isPerfect(k:int);
+
+    // Kaibab: 30 s with 4 tasks (n = 10,000)
+    //isHarmonicDivisor(k:int);
+  }
+  timer.stop();
+  writeln("Total test time: ", timer.elapsed());
+  timer.clear();
+}
 
 
+
+/*
 const Dbase = {1..5};  // a default-distributed domain
 const Drepl: domain(1) dmapped ReplicatedDist() = Dbase;
 var Abase: [Dbase] int;
@@ -117,28 +147,24 @@ Arepl = Abase;
 writeln("Arepl = Abase;");
 writeln("Abase: ", Abase);
 writeln("Arepl: ", Arepl);
-
-
-
-/*
-writeln("... guidedDistributed iterator, replicated distribution:");
-const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
-testUniformlyRandomWorkload(replicatedDomain);
 */
 
 
-proc testUniformlyRandomWorkload(c)
+writeln("... guidedDistributed iterator, replicated distribution:");
+const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
+//testUniformlyRandomWorkload(replicatedDomain);
+var uniformlyRandomWorkload:[replicatedDomain]real;
+fillRandom(uniformlyRandomWorkload);
+writeArrayValueHistogram(uniformlyRandomWorkload);
+testWorkload(uniformlyRandomWorkload, controlDomain);
+
+proc testWorkload(a:[], c)
 {
   var timer:Timer;
-  var uniformlyRandomWorkload:[c]real = 0.0;
-
-  fillRandom(uniformlyRandomWorkload);
-  writeArrayValueHistogram(uniformlyRandomWorkload, c);
-
   timer.start();
   forall i in guidedDistributed(c, coordinated=coordinated) do
   {
-    const k:int = (uniformlyRandomWorkload[i] * n):int;
+    const k:int = (a[i] * n):int;
 
     // Jupiter: 43 s with 4 tasks (n = 100,000)
     piApproximate(k);
@@ -168,8 +194,7 @@ proc testUniformlyRandomWorkload(c, iterator)
   var timer:Timer;
   var uniformlyRandomWorkload:[cReplicated]real = 0.0;
   fillRandom(uniformlyRandomWorkload);
-  writeArrayValueHistogram(uniformlyRandomWorkload,
-                                  cReplicated);
+  writeArrayValueHistogram(uniformlyRandomWorkload);
 
   timer.start();
   forall i in iterator do
@@ -204,7 +229,7 @@ proc testUniformlyRandomWorkload(c)
   var timer:Timer;
   var uniformlyRandomWorkload:[c]real = 0.0;
   fillRandom(uniformlyRandomWorkload);
-  writeArrayValueHistogram(uniformlyRandomWorkload, c);
+  writeArrayValueHistogram(uniformlyRandomWorkload);
 
   timer.start();
   forall v in uniformlyRandomWorkload do
@@ -449,11 +474,11 @@ proc isHarmonicDivisor(n:int):bool
   return harmonicMean == round(harmonicMean);
 }
 
-proc writeArrayValueHistogram(arr:[], c)
+proc writeArrayValueHistogram(a:[])
 { // Write the given array's values histogram.
   // TODO: Parameterize bin width?
   var firstQuarter,secondQuarter,thirdQuarter,fourthQuarter:int;
-  for i in arr do
+  for i in a do
   {
     const k:int=(i * n):int;
     if k < n:real/4
