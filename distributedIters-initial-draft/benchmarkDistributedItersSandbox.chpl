@@ -77,6 +77,50 @@ proc testUniformlyRandomWorkload(c, iterator)
 
 writeln("... guidedDistributed iterator, default-distributed domain:");
 testUniformlyRandomWorkload(controlDomain);
+
+
+const Dbase = {1..5};  // a default-distributed domain
+const Drepl: domain(1) dmapped ReplicatedDist() = Dbase;
+var Abase: [Dbase] int;
+var Arepl: [Drepl] int;
+
+writeln("Initial.");
+writeln(Arepl);
+writeln(Abase);
+
+// only the current locale's replicand is accessed
+Arepl[3] = 4;
+writeln("Arepl[3] = 4;");
+writeln(Arepl);
+writeln(Abase);
+
+// these iterate over Dbase;
+// only the current locale's replicand is accessed
+forall (b,r) in zip(Abase,Arepl) do b = r;
+writeln("forall (b,r) in zip(Abase,Arepl) do b = r;");
+writeln(Arepl);
+writeln(Abase);
+
+Abase = Arepl;
+writeln("Abase = Arepl;");
+writeln(Arepl);
+writeln(Abase);
+
+
+// these iterate over Drepl; each replicand of Drepl
+// will be zippered against (and copied from) the entire Abase
+forall (r,b) in zip(Arepl,Abase) do r = b;
+writeln("forall (r,b) in zip(Arepl,Abase) do r = b;");
+writeln(Arepl);
+writeln(Abase);
+
+Arepl = Abase;
+writeln("Arepl = Abase;");
+writeln(Arepl);
+writeln(Abase);
+
+
+
 /*
 writeln("... guidedDistributed iterator, replicated distribution:");
 const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
