@@ -152,7 +152,16 @@ writeln("Arepl: ", Arepl);
 
 writeln("... guidedDistributed iterator, replicated distribution:");
 const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
+var uniformlyRandomWorkload:[replicatedDomain]real;
+fillRandom(uniformlyRandomWorkload);
+writeArrayValueHistogram(uniformlyRandomWorkload);
+testWorkload(uniformlyRandomWorkload, replicatedDomain);
+
+
 //testUniformlyRandomWorkload(replicatedDomain);
+
+
+/*// Array preparation test.
 var arrayPreparationTime:Timer;
 arrayPreparationTime.start();
 var uniformlyRandomWorkload:[controlDomain]real;
@@ -161,14 +170,15 @@ writeArrayValueHistogram(uniformlyRandomWorkload);
 arrayPreparationTime.stop();
 writeln("Array preparation time: ", arrayPreparationTime.elapsed());
 arrayPreparationTime.clear();
+*/
 
-//testWorkload(uniformlyRandomWorkload, controlDomain);
 
 proc testWorkload(a:[], c)
 {
   var timer:Timer;
   timer.start();
   forall i in guidedDistributed(c, coordinated=coordinated) do
+  on i.locale do
   {
     const k:int = (a[i] * n):int;
 
