@@ -19,8 +19,11 @@ perfect -- Check if numbers are perfect. Kaibab: 20 s with 4 tasks (n = 10,000)
 harmonic -- Check if numbers are harmonic divisors. Kaibab: 30 s with 4 tasks
             (n = 10,000)
 */
-enum calculation { pi, perfect, harmonic }
+enum calculation { pi, perfect, harmonic };
 config const load:calculation = calculation.pi;
+
+enum testCase { uniformlyrandom, outliers, control };
+config const test:testCase = testCase.uniformlyrandom;
 
 config const coordinated:bool = false;
 // n determines the iteration count and work per iteration.
@@ -29,46 +32,58 @@ config const n:int = 1000;
 const controlRange:range = 0..#n;
 const controlDomain:domain(1) = {controlRange};
 
-/*
-  Iterate over a range that maps to a list of uniform random integers.
-  Do some work proportional to the value of the integers.
-*/
-writeln("Testing a uniformly random workload...");
+select test
+{
+  when testCase.uniformlyrandom
+  {
+    /*
+      Test #1: Iterate over a range that maps to a list of uniform random integers.
+      Do some work proportional to the value of the integers.
+    */
+    writeln("Testing a uniformly random workload...");
 
-/*
-writeln("... guidedDistributed iterator, default-distributed domain:");
-testUniformlyRandomWorkload(
-  arrayDomain=controlDomain,
-  iterator=guidedDistributed(controlDomain, coordinated=coordinated),
-  procedure=piApproximate);
-*/
-/*
-writeln("... guidedDistributed iterator, replicated distribution:");
-const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
-var uniformlyRandomWorkload:[replicatedDomain]real;
-fillRandom(uniformlyRandomWorkload);
-writeArrayValueHistogram(uniformlyRandomWorkload);
-testWorkload(
-  array=uniformlyRandomWorkload,
-  iterator=guidedDistributed(controlDomain, coordinated=coordinated),
-  procedure=piApproximate);
-*/
+    /*
+    writeln("... guidedDistributed iterator, default-distributed domain:");
+    testUniformlyRandomWorkload(
+      arrayDomain=controlDomain,
+      iterator=guidedDistributed(controlDomain, coordinated=coordinated),
+      procedure=piApproximate);
+    */
 
-writeln("... default (control) iterator, block-distributed array:");
-const D:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
-testUniformlyRandomWorkload(
-  arrayDomain=D,
-  iterator=D,
-  procedure=piApproximate);
+    writeln("... guidedDistributed iterator, replicated distribution:");
+    const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
+    testUniformlyRandomWorkload(
+      arrayDomain=replicatedDomain,
+      iterator=guidedDistributed(controlDomain, coordinated=coordinated),
+      procedure=piApproximate);
+  }
+  when testCase.outliers
+  {
+    /*
+      Test #2: Iterate over a range that maps to values that are mostly the same
+      except for a handful of much larger values to throw off the balance.
+    */
+    writeln("Testing a random outliers workload...");
+
+    writeln("... guidedDistributed iterator, replicated distribution:");
+    const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
+    testRandomOutliersWorkload(
+      arrayDomain=replicatedDomain,
+      iterator=guidedDistributed(controlDomain, coordinated=coordinated),
+      procedure=piApproximate);
+  }
+  when testCase.control
+  {
+    writeln("... default (control) iterator, block-distributed array:");
+    const D:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
+    testUniformlyRandomWorkload(
+      arrayDomain=D,
+      iterator=D,
+      procedure=piApproximate);
+  }
+}
 
 // Testing procedures.
-
-proc testUniformlyRandomWorkload(arrayDomain, iterator, procedure)
-{
-  var uniformlyRandomWorkload:[arrayDomain]real = 0.0;
-  fillRandom(uniformlyRandomWorkload);
-  testWorkload(uniformlyRandomWorkload, iterator, procedure);
-}
 
 proc testWorkload(array:[], iterator, procedure)
 {
@@ -85,46 +100,48 @@ proc testWorkload(array:[], iterator, procedure)
   timer.clear();
 }
 
-
-
-
-
-// Control: Block-distributed array, default iterator.
-/*
-
-
-proc testUniformlyRandomWorkload(c)
+proc testUniformlyRandomWorkload(arrayDomain, iterator, procedure)
 {
-  var timer:Timer;
-  var uniformlyRandomWorkload:[c]real = 0.0;
-  fillRandom(uniformlyRandomWorkload);
-  writeArrayValueHistogram(uniformlyRandomWorkload);
-
-  timer.start();
-  forall v in uniformlyRandomWorkload do
-  {
-    const k:int = (v*n):int;
-
-    // Jupiter: 43 s with 4 tasks (n = 100,000)
-    piApproximate(k);
-
-    // Kaibab: 20 s with 4 tasks (n = 10,000)
-    //isPerfect(k:int);
-
-    // Kaibab: 30 s with 4 tasks (n = 10,000)
-    //isHarmonicDivisor(k:int);
-  }
-  timer.stop();
-  writeln("Total time: ", timer.elapsed());
-  timer.clear();
+  var uniformlyRandom:[arrayDomain]real = 0.0;
+  fillRandom(uniformlyRandom);
+  testWorkload(uniformlyRandom, iterator, procedure);
 }
-*/
 
-/*
-  Iterate over a range that maps to values that are mostly the same except for
-  a handful of much larger values to throw off the balance.
-*/
-// TODO...
+proc testRandomOutliersWorkload(arrayDomain, iterator, procedure)
+{
+  var randomOutliers:[arrayDomain]real = 0.0;
+  fillRandom(randomOutliers);
+  /*
+    Creating outliers: a_3 through a_0 are coefficients for a cubic function
+    extrapolation for these (x,y) points:
+
+      {(0, 0.5), (0.25, 0.5), (0.5, 0.5), (0.75, 0.5), (1, 1)}.
+
+    The function translates x values in the interval [0,1] into values that
+    follow this distribution:
+
+      ~80% are between 0.45 and 0.55,
+      ~10% are between 0.55 and 0.75,
+      ~5% are between 0.75 and 0.85,
+      ~5% are between 0.85 and 1.
+  */
+  const a_3:real = 2.66667;
+  const a_2:real = 2.85714;
+  const a_1:real = 0.690476;
+  const a_0:real = 0.492857;
+  forall i in arrayDomain do
+  {
+    const x:real = randomOutliers[i];
+    const xSquared:real = (x ** 2);
+    const xCubed:real = (x * xSquared);
+    const translatedX:real = ((a_3 * xCubed)
+                              - (a_2 * xSquared)
+                              + (a_1 * x)
+                              + a_0);
+    randomOutliers[i] = translatedX;
+  }
+  testWorkload(randomOutliers, iterator, procedure);
+}
 
 // Helpers.
 
@@ -254,8 +271,8 @@ proc piApproximate(k:int):real
 }
 
 /*
-  Transliterated from Python version on Wikipedia. (Python version commented on
-  right for reference.)
+  Integer factorization. Transliterated from Python version on Wikipedia.
+  (Python version commented on right for reference.)
 
   Source:
   https://en.wikipedia.org/wiki/Trial_division
