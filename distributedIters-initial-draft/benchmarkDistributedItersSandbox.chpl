@@ -13,9 +13,18 @@ use BlockDist,
     Sort,
     Time;
 
-config const coordinated:bool=false;
+/* Loads:
+pi -- Iterated pi approximation. Jupiter: 43 s with 4 tasks (n = 100,000)
+perfect -- Check if numbers are perfect. Kaibab: 20 s with 4 tasks (n = 10,000)
+harmonic -- Check if numbers are harmonic divisors. Kaibab: 30 s with 4 tasks
+            (n = 10,000)
+*/
+enum calculation { pi, perfect, harmonic }
+config const load:calculation = calculation.pi;
+
+config const coordinated:bool = false;
 // n determines the iteration count.
-config const n:int=1000;
+config const n:int = 1000;
 
 const controlRange:range = 0..#n;
 const controlDomain:domain(1) = {controlRange};
@@ -26,31 +35,25 @@ const controlDomain:domain(1) = {controlRange};
 */
 writeln("Testing a uniformly random workload...");
 
-/* Works fine.
-writeln("... guidedDistributed iterator, default-distributed array:");
-//const defaultDistributedDomain:domain(1) = {controlRange};
-//testUniformlyRandomWorkload(defaultDistributedDomain);
-testUniformlyRandomWorkload(c=controlRange,
-                            iterator=guidedDistributed(controlRange,
-                                                       coordinated=coordinated));
-*/
-
+/*
 writeln("... guidedDistributed iterator, default-distributed domain:");
 testUniformlyRandomWorkload(
   arrayDomain=controlDomain,
   iterator=guidedDistributed(controlDomain, coordinated=coordinated),
   procedure=piApproximate);
-
-/* Options.
-// Jupiter: 43 s with 4 tasks (n = 100,000)
-piApproximate(k);
-
-// Kaibab: 20 s with 4 tasks (n = 10,000)
-//isPerfect(k:int);
-
-// Kaibab: 30 s with 4 tasks (n = 10,000)
-//isHarmonicDivisor(k:int);
 */
+
+writeln("... guidedDistributed iterator, replicated distribution:");
+const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
+var uniformlyRandomWorkload:[replicatedDomain]real;
+fillRandom(uniformlyRandomWorkload);
+writeArrayValueHistogram(uniformlyRandomWorkload);
+testWorkload(
+  array=uniformlyRandomWorkload,
+  iterator=guidedDistributed(controlDomain, coordinated=coordinated),
+  procedure=piApproximate);
+
+// Testing procedures.
 
 proc testUniformlyRandomWorkload(arrayDomain, iterator, procedure)
 {
@@ -71,194 +74,21 @@ proc testUniformlyRandomWorkload(arrayDomain, iterator, procedure)
   timer.clear();
 }
 
-
-proc testUniformlyRandomWorkload(c, iterator)
+proc testWorkload(array:[], iterator, procedure)
 {
   var timer:Timer;
-  var uniformlyRandomWorkload:[c]real = 0.0;
-  fillRandom(uniformlyRandomWorkload);
-
-  writeArrayValueHistogram(uniformlyRandomWorkload);
-  timer.start();
-
-  //forall i in guidedDistributed(c, coordinated=coordinated) do
-  forall i in iterator do
-  {
-    const k:int=(uniformlyRandomWorkload[i] * n):int;
-
-    // Jupiter: 43 s with 4 tasks (n = 100,000)
-    piApproximate(k);
-
-    // Kaibab: 20 s with 4 tasks (n = 10,000)
-    //isPerfect(k:int);
-
-    // Kaibab: 30 s with 4 tasks (n = 10,000)
-    //isHarmonicDivisor(k:int);
-  }
-
-  timer.stop();
-  writeln("Total test time: ", timer.elapsed());
-  timer.clear();
-}
-
-
-
-/*
-writeln("... guidedDistributed iterator, default-distributed domain:");
-testUniformlyRandomWorkload(controlDomain);
-*/
-
-proc testUniformlyRandomWorkload(c)
-{
-  var timer:Timer;
-  var uniformlyRandomWorkload:[c]real = 0.0;
-
-  fillRandom(uniformlyRandomWorkload);
-  writeArrayValueHistogram(uniformlyRandomWorkload);
-
-  timer.start();
-  forall i in guidedDistributed(c, coordinated=coordinated) do
-  {
-    const k:int = (uniformlyRandomWorkload[i] * n):int;
-
-    // Jupiter: 43 s with 4 tasks (n = 100,000)
-    piApproximate(k);
-
-    // Kaibab: 20 s with 4 tasks (n = 10,000)
-    //isPerfect(k:int);
-
-    // Kaibab: 30 s with 4 tasks (n = 10,000)
-    //isHarmonicDivisor(k:int);
-  }
-  timer.stop();
-  writeln("Total test time: ", timer.elapsed());
-  timer.clear();
-}
-
-
-
-/*
-const Dbase = {1..5};  // a default-distributed domain
-const Drepl: domain(1) dmapped ReplicatedDist() = Dbase;
-var Abase: [Dbase] int;
-var Arepl: [Drepl] int;
-
-writeln("Initial.");
-writeln("Abase: ", Abase);
-writeln("Arepl: ", Arepl);
-
-// only the current locale's replicand is accessed
-Arepl[3] = 4;
-writeln("Arepl[3] = 4;");
-writeln("Abase: ", Abase);
-writeln("Arepl: ", Arepl);
-
-// these iterate over Dbase;
-// only the current locale's replicand is accessed
-forall (b,r) in zip(Abase,Arepl) do b = r;
-writeln("forall (b,r) in zip(Abase,Arepl) do b = r;");
-writeln("Abase: ", Abase);
-writeln("Arepl: ", Arepl);
-
-Abase = Arepl;
-writeln("Abase = Arepl;");
-writeln("Abase: ", Abase);
-writeln("Arepl: ", Arepl);
-
-// these iterate over Drepl; each replicand of Drepl
-// will be zippered against (and copied from) the entire Abase
-forall (r,b) in zip(Arepl,Abase) do r = b;
-writeln("forall (r,b) in zip(Arepl,Abase) do r = b;");
-writeln("Abase: ", Abase);
-writeln("Arepl: ", Arepl);
-
-Arepl = Abase;
-writeln("Arepl = Abase;");
-writeln("Abase: ", Abase);
-writeln("Arepl: ", Arepl);
-*/
-
-/* Tuesday 7/18 works fine.
-writeln("... guidedDistributed iterator, replicated distribution:");
-const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
-var uniformlyRandomWorkload:[replicatedDomain]real;
-fillRandom(uniformlyRandomWorkload);
-writeArrayValueHistogram(uniformlyRandomWorkload);
-testWorkload(uniformlyRandomWorkload, controlDomain);
-*/
-
-//testUniformlyRandomWorkload(replicatedDomain);
-
-
-/*// Array preparation test.
-var arrayPreparationTime:Timer;
-arrayPreparationTime.start();
-var uniformlyRandomWorkload:[controlDomain]real;
-fillRandom(uniformlyRandomWorkload);
-writeArrayValueHistogram(uniformlyRandomWorkload);
-arrayPreparationTime.stop();
-writeln("Array preparation time: ", arrayPreparationTime.elapsed());
-arrayPreparationTime.clear();
-*/
-
-
-proc testWorkload(a:[], c)
-{
-  var timer:Timer;
-  timer.start();
-  forall i in guidedDistributed(c, coordinated=coordinated) do
-  {
-    const k:int = (a[i] * n):int;
-
-    // Jupiter: 43 s with 4 tasks (n = 100,000)
-    piApproximate(k);
-
-    // Kaibab: 20 s with 4 tasks (n = 10,000)
-    //isPerfect(k:int);
-
-    // Kaibab: 30 s with 4 tasks (n = 10,000)
-    //isHarmonicDivisor(k:int);
-  }
-  timer.stop();
-  writeln("Total test time: ", timer.elapsed());
-  timer.clear();
-}
-
-
-/*
-// Replicated distribution. (Original attempt.)
-writeln("... guidedDistributed iterator, replicated distribution:");
-testReplicatedUniformlyRandomWorkload(c=controlRange,
-                                      iterator=guidedDistributed(controlRange,
-                                                                 coordinated=coordinated));
-
-proc testUniformlyRandomWorkload(c, iterator)
-{
-  const cReplicated:domain(1) dmapped Replicated() = c;
-  var timer:Timer;
-  var uniformlyRandomWorkload:[cReplicated]real = 0.0;
-  fillRandom(uniformlyRandomWorkload);
-  writeArrayValueHistogram(uniformlyRandomWorkload);
-
   timer.start();
   forall i in iterator do
   {
-    const k:int=(uniformlyRandomWorkload[i] * n):int;
-
-    // Jupiter: 43 s with 4 tasks (n = 100,000)
-    piApproximate(k);
-
-    // Kaibab: 20 s with 4 tasks (n = 10,000)
-    //isPerfect(k:int);
-
-    // Kaibab: 30 s with 4 tasks (n = 10,000)
-    //isHarmonicDivisor(k:int);
+    const k:int = (array[i] * n):int;
+    procedure(k);
   }
   timer.stop();
-  writeln("Total time: ", timer.elapsed());
+  writeln("Total test time: ", timer.elapsed());
   timer.clear();
 }
-*/
+
+
 
 
 
@@ -299,22 +129,12 @@ proc testUniformlyRandomWorkload(c)
   Iterate over a range that maps to values that are mostly the same except for
   a handful of much larger values to throw off the balance.
 */
+// TODO...
 
 // Helpers.
 
-proc largest(c)
-{
-  var result:real;
-  for x in c do
-  {
-    if x > result then result = x;
-  }
-  return result;
-}
-
 iter fibo(n:int)
-{
-  // Yields the Fibonacci sequence from the zeroth number to the nth.
+{ // Yields the Fibonacci sequence from the zeroth number to the nth.
   var current:int=0,
       next:int=1;
   for i in 0..n
@@ -326,9 +146,8 @@ iter fibo(n:int)
 }
 
 iter fact(n:int)
-{
+{ // Yields the factorial sequence from zero factorial up to n factorial.
   assert(n >= 0, "n must be a nonnegative integer");
-  // Yields the factorial sequence from zero factorial up to n factorial.
   var current:int=1;
   if n == 0
   then yield 1;
@@ -343,13 +162,13 @@ iter fact(n:int)
   }
 }
 
+/*
+  Yields up to k successive refinements of the Taylor series (at a = 0) for
+  the exponential function e ** x.
+  https://en.wikipedia.org/wiki/Taylor_series
+*/
 iter expoSeries(x:real,k:int=30):real
 {
-  /*
-    Yields up to k successive refinements of the Taylor series (at a = 0) for
-    the exponential function e ** x.
-    https://en.wikipedia.org/wiki/Taylor_series
-  */
   var current:real=0.0;
   for (n_factorial,n) in zip(fact(k),0..k)
   {
@@ -358,12 +177,12 @@ iter expoSeries(x:real,k:int=30):real
   }
 }
 
+/*
+  Yields a pi approximation to k iterations using Fabrice Bellard's formula.
+  https://en.wikipedia.org/wiki/Approximations_of_%CF%80#Efficient_methods
+*/
 iter piFabriceBellard(k:int)
 {
-  /*
-    Yields a pi approximation to k iterations using Fabrice Bellard's formula.
-    https://en.wikipedia.org/wiki/Approximations_of_%CF%80#Efficient_methods
-  */
   var current:real=0.0;
   var fourN, tenN : int;
   for n in 0..k do
@@ -381,13 +200,13 @@ iter piFabriceBellard(k:int)
   yield current/64;
 }
 
+/*
+  Yields a pi approximation to n iterations using Bailey, Borwein, and
+  Plouffe's formula.
+  https://en.wikipedia.org/wiki/Approximations_of_%CF%80#Efficient_methods
+*/
 iter piBBP(n:int)
 {
-  /*
-    Yields a pi approximation to n iterations using Bailey, Borwein, and
-    Plouffe's formula.
-    https://en.wikipedia.org/wiki/Approximations_of_%CF%80#Efficient_methods
-  */
   var current:real=0.0;
   var eightK:int;
   for k in 0..n do
@@ -401,8 +220,8 @@ iter piBBP(n:int)
   }
 }
 
-iter sieveOfEratosthenes(n:int)
-{ // Yield all primes up to n.
+iter primeSieve(n:int)
+{ // Sieve of Eratosthenes: Yield all primes up to n.
   var p:int=2;
   var composite:[p..#n] bool;
   while p <= n do
@@ -416,12 +235,12 @@ iter sieveOfEratosthenes(n:int)
   }
 }
 
+/*
+  Returns a pi approximation using Fabrice Bellard's formula for k iterations.
+  https://en.wikipedia.org/wiki/Approximations_of_%CF%80#Efficient_methods
+*/
 proc piApproximate(k:int):real
-{ /*
-    Returns a pi approximation using Fabrice Bellard's formula for k
-    iterations.
-    https://en.wikipedia.org/wiki/Approximations_of_%CF%80#Efficient_methods
-  */
+{
   var current:real=0.0;
   var fourN,tenN:real;
   for n in 0..k do
@@ -439,28 +258,33 @@ proc piApproximate(k:int):real
   return current/64.0;
 }
 
-proc trialDivision(n:int):domain(int)        // def trialDivision(n):
-{ // Return an associative domain containing n's prime factors.
-                                             // """Return a list of the prime factors for a natural number."""
-  if n < 2                                   // if n < 2:
-  then return {1..0};                        //   return []
-  var x:int=n;                               // x = n # Need this only for Chapel.
-  var primeFactors:domain(int);              // primeFactors = []
-  //writeln(x, "**0.5:int is ", (x**0.5):int);
-  for p in sieveOfEratosthenes((x**0.5):int) // for p in prime_sieve(int(x**0.5)):
-  {
-    //writeln("Checking ", p*p, " > ", x);
-    if p*p > x then break;                   //   if p*p > x: break
-    while x % p == 0 do                      //   while x % p == 0:
-    {
-      primeFactors += p;                     //     primeFactors.append(p)
-      x = divfloorpos(x,p);                  //     x //= p
-    }
-  }
-  if x > 1                                   // if x > 1:
-  then primeFactors += x;                    //   primeFactors.append(x)
+/*
+  Transliterated from Python version on Wikipedia. (Python version commented on
+  right for reference.)
 
-  return primeFactors;                       // return primeFactors
+  Source:
+  https://en.wikipedia.org/wiki/Trial_division
+*/
+proc trialDivision(n:int):domain(int)  // def trialDivision(n):
+{ // Returns an associative domain of  // """Return a list of the prime
+  // n's prime factors.                //    factors for a natural
+                                       //    number."""
+  if n < 2 then                        // if n < 2:
+    return {1..0};                     //   return []
+  var x:int=n; // Needed for Chapel.   // x = n # Needed for Chapel.
+  var primeFactors:domain(int);        // primeFactors = []
+  for p in primeSieve((x**0.5):int)    // for p in primeSieve(int(x**0.5)):
+  {                                    //
+    if p*p > x then break;             //   if p*p > x: break
+    while x % p == 0 do                //   while x % p == 0:
+    {                                  //
+      primeFactors += p;               //     primeFactors.append(p)
+      x = divfloorpos(x,p);            //     x //= p
+    }                                  //
+  }                                    //
+  if x > 1 then                        // if x > 1:
+    primeFactors += x;                 //   primeFactors.append(x)
+  return primeFactors;                 // return primeFactors
 }
 
 proc properDivisors(n:int):domain(int)
@@ -489,20 +313,20 @@ proc isPerfect(n:int):bool
   return sum == n;
 }
 
+/*
+  A harmonic divisor number, or Ore number, is a positive integer whose
+  divisors have a harmonic mean that is an integer.
+  https://en.wikipedia.org/wiki/Harmonic_divisor_number
+*/
 proc isHarmonicDivisor(n:int):bool
 {
-  /*
-    A harmonic divisor number, or Ore number, is a positive integer whose
-    divisors have a harmonic mean that is an integer.
-    https://en.wikipedia.org/wiki/Harmonic_divisor_number
-  */
   if n < 1 then return false;
   if n == 1 then return true;
   var numerator,denominator,harmonicMean:real;
-  var divisorsN:domain(int)=divisors(n);
-  numerator=divisorsN.size;
+  var divisorsN:domain(int) = divisors(n);
+  numerator = divisorsN.size;
   for p in divisorsN do denominator += 1.0/(p:real);
-  harmonicMean=numerator/denominator;
+  harmonicMean = (numerator/denominator);
   /*
     TODO: We would like to do this here:
 
@@ -513,7 +337,8 @@ proc isHarmonicDivisor(n:int):bool
     some infinitesmial amount such that the above desired comparison
     expression fails even when it should succeed. We could use some kind of
     fraction representation with algebraic manipulation to make this
-    procedure work... but currently it does not.
+    procedure work correctly... but currently it does not. It is still good as
+    a dummy load for benchmarking.
   */
   return harmonicMean == round(harmonicMean);
 }
