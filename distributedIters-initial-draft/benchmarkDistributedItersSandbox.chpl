@@ -35,6 +35,7 @@ const controlDomain:domain(1) = {controlRange};
 */
 writeln("Testing a uniformly random workload...");
 
+
 writeln("... guidedDistributed iterator, default-distributed domain:");
 testUniformlyRandomWorkload(
   arrayDomain=controlDomain,
@@ -56,9 +57,17 @@ testWorkload(
 
 // Testing procedures.
 
+proc testUniformlyRandomWorkload(arrayDomain, iterator, procedure)
+{
+  var uniformlyRandomWorkload:[arrayDomain]real = 0.0;
+  fillRandom(uniformlyRandomWorkload);
+  testWorkload(uniformlyRandomWorkload, iterator, procedure);
+}
+
 proc testWorkload(array:[], iterator, procedure)
 {
   var timer:Timer;
+  writeArrayValueHistogram(array);
   timer.start();
   forall i in iterator do
   {
@@ -68,12 +77,6 @@ proc testWorkload(array:[], iterator, procedure)
   timer.stop();
   writeln("Total test time: ", timer.elapsed());
   timer.clear();
-}
-
-proc testUniformlyRandomWorkload(arrayDomain, iterator, procedure)
-{
-  var uniformlyRandomWorkload:[arrayDomain]real = 0.0;
-  testWorkload(uniformlyRandomWorkload, iterator, procedure);
 }
 
 
