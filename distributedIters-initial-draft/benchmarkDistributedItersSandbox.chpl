@@ -155,7 +155,7 @@ const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
 var uniformlyRandomWorkload:[replicatedDomain]real;
 fillRandom(uniformlyRandomWorkload);
 writeArrayValueHistogram(uniformlyRandomWorkload);
-testWorkload(uniformlyRandomWorkload, replicatedDomain);
+testWorkload(uniformlyRandomWorkload, controlDomain);
 
 
 //testUniformlyRandomWorkload(replicatedDomain);
@@ -178,7 +178,6 @@ proc testWorkload(a:[], c)
   var timer:Timer;
   timer.start();
   forall i in guidedDistributed(c, coordinated=coordinated) do
-  on i.locale do
   {
     const k:int = (a[i] * n):int;
 
