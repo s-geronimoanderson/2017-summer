@@ -23,7 +23,7 @@ enum calculation { pi, perfect, harmonic }
 config const load:calculation = calculation.pi;
 
 config const coordinated:bool = false;
-// n determines the iteration count.
+// n determines the iteration count and work per iteration.
 config const n:int = 1000;
 
 const controlRange:range = 0..#n;
@@ -35,13 +35,13 @@ const controlDomain:domain(1) = {controlRange};
 */
 writeln("Testing a uniformly random workload...");
 
-
+/*
 writeln("... guidedDistributed iterator, default-distributed domain:");
 testUniformlyRandomWorkload(
   arrayDomain=controlDomain,
   iterator=guidedDistributed(controlDomain, coordinated=coordinated),
   procedure=piApproximate);
-
+*/
 /*
 writeln("... guidedDistributed iterator, replicated distribution:");
 const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
@@ -54,6 +54,12 @@ testWorkload(
   procedure=piApproximate);
 */
 
+writeln("... default (control) iterator, block-distributed array:");
+const D:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
+testUniformlyRandomWorkload(
+  arrayDomain=D,
+  iterator=D,
+  procedure=piApproximate);
 
 // Testing procedures.
 
@@ -85,9 +91,7 @@ proc testWorkload(array:[], iterator, procedure)
 
 // Control: Block-distributed array, default iterator.
 /*
-writeln("... default (control) iterator, block-distributed array:");
-const blockDistributedDomain:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
-testUniformlyRandomWorkload(c=blockDistributedDomain);
+
 
 proc testUniformlyRandomWorkload(c)
 {
