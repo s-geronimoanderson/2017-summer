@@ -15,7 +15,7 @@ use BlockDist,
 
 config const coordinated:bool=false;
 // n determines the iteration count.
-config const n:int=100;
+config const n:int=1000;
 
 const controlRange:range = 0..#n;
 const controlDomain:domain(1) = {controlRange};
@@ -24,7 +24,6 @@ const controlDomain:domain(1) = {controlRange};
   Iterate over a range that maps to a list of uniform random integers.
   Do some work proportional to the value of the integers.
 */
-// Default distribution.
 writeln("Testing a uniformly random workload...");
 
 /* Works fine.
@@ -36,12 +35,42 @@ testUniformlyRandomWorkload(c=controlRange,
                                                        coordinated=coordinated));
 */
 
-/* Works fine.
 writeln("... guidedDistributed iterator, default-distributed domain:");
-testUniformlyRandomWorkload(c=controlDomain,
-                            iterator=guidedDistributed(controlDomain,
-                                                       coordinated=coordinated));
+testUniformlyRandomWorkload(
+  arrayDomain=controlDomain,
+  iterator=guidedDistributed(controlDomain, coordinated=coordinated),
+  procedure=piApproximate);
+
+/* Options.
+// Jupiter: 43 s with 4 tasks (n = 100,000)
+piApproximate(k);
+
+// Kaibab: 20 s with 4 tasks (n = 10,000)
+//isPerfect(k:int);
+
+// Kaibab: 30 s with 4 tasks (n = 10,000)
+//isHarmonicDivisor(k:int);
 */
+
+proc testUniformlyRandomWorkload(arrayDomain, iterator, procedure)
+{
+  var timer:Timer;
+  var uniformlyRandomWorkload:[arrayDomain]real = 0.0;
+
+  fillRandom(uniformlyRandomWorkload);
+  writeArrayValueHistogram(uniformlyRandomWorkload);
+
+  timer.start();
+  forall i in iterator do
+  {
+    const k:int = (uniformlyRandomWorkload[i] * n):int;
+    procedure(k);
+  }
+  timer.stop();
+  writeln("Total test time: ", timer.elapsed());
+  timer.clear();
+}
+
 
 proc testUniformlyRandomWorkload(c, iterator)
 {
@@ -149,14 +178,14 @@ writeln("Abase: ", Abase);
 writeln("Arepl: ", Arepl);
 */
 
-
+/* Tuesday 7/18 works fine.
 writeln("... guidedDistributed iterator, replicated distribution:");
 const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
 var uniformlyRandomWorkload:[replicatedDomain]real;
 fillRandom(uniformlyRandomWorkload);
 writeArrayValueHistogram(uniformlyRandomWorkload);
 testWorkload(uniformlyRandomWorkload, controlDomain);
-
+*/
 
 //testUniformlyRandomWorkload(replicatedDomain);
 
