@@ -13,16 +13,34 @@ use BlockDist,
     Sort,
     Time;
 
-/* Loads:
-pi -- Iterated pi approximation. Jupiter: 43 s with 4 tasks (n = 100,000)
-perfect -- Check if numbers are perfect. Kaibab: 20 s with 4 tasks (n = 10,000)
-harmonic -- Check if numbers are harmonic divisors. Kaibab: 30 s with 4 tasks
-            (n = 10,000)
+/*
+  Loads:
+
+  pi -- Iterated pi approximation. Jupiter: 43 s with 4 tasks (n = 100,000)
+  perfect -- Check if numbers are perfect. Kaibab: 20 s with 4 tasks (n = 10,000)
+  harmonic -- Check if numbers are harmonic divisors. Kaibab: 30 s with 4 tasks
+              (n = 10,000)
 */
+// TODO: Have tests accept these overrides (currently defaults to pi).
 enum calculation { pi, perfect, harmonic };
 config const load:calculation = calculation.pi;
 
-enum testCase { uniformlyrandom, outliers, control };
+/*
+  Test cases:
+
+  uniformlyrandom -- Self-explanatory. Uses guided distributed iterator.
+  uniformlyrandomcontrol -- Same as above but with default iterator.
+
+  outlier -- Most values close to average, handful of outliers.
+  outliercontrol -- Same as above but with default iterator.
+*/
+enum testCase
+{
+  uniformlyrandom,
+  uniformlyrandomcontrol,
+  outlier,
+  outliercontrol
+};
 config const test:testCase = testCase.uniformlyrandom;
 
 config const coordinated:bool = false;
@@ -34,12 +52,12 @@ const controlDomain:domain(1) = {controlRange};
 
 select test
 {
+  /*
+    Test #1: Iterate over a range that maps to a list of uniform random integers.
+    Do some work proportional to the value of the integers.
+  */
   when testCase.uniformlyrandom
   {
-    /*
-      Test #1: Iterate over a range that maps to a list of uniform random integers.
-      Do some work proportional to the value of the integers.
-    */
     writeln("Testing a uniformly random workload...");
 
     /*
@@ -57,14 +75,24 @@ select test
       iterator=guidedDistributed(controlDomain, coordinated=coordinated),
       procedure=piApproximate);
   }
-  when testCase.outliers
+  when testCase.uniformlyrandomcontrol
   {
-    /*
-      Test #2: Iterate over a range that maps to values that are mostly the same
-      except for a handful of much larger values to throw off the balance.
-    */
-    writeln("Testing a random outliers workload...");
+    writeln("Testing a uniformly random workload...");
+    writeln("... default (control) iterator, block-distributed array:");
+    const D:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
+    testUniformlyRandomWorkload(
+      arrayDomain=D,
+      iterator=D,
+      procedure=piApproximate);
+  }
 
+  /*
+    Test #2: Iterate over a range that maps to values that are mostly the same
+    except for a handful of much larger values to throw off the balance.
+  */
+  when testCase.outlier
+  {
+    writeln("Testing a random outliers workload...");
     writeln("... guidedDistributed iterator, replicated distribution:");
     const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
     testRandomOutliersWorkload(
@@ -72,11 +100,12 @@ select test
       iterator=guidedDistributed(controlDomain, coordinated=coordinated),
       procedure=piApproximate);
   }
-  when testCase.control
+  when testCase.outliercontrol
   {
+    writeln("Testing a random outliers workload...");
     writeln("... default (control) iterator, block-distributed array:");
     const D:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
-    testUniformlyRandomWorkload(
+    testRandomOutliersWorkload(
       arrayDomain=D,
       iterator=D,
       procedure=piApproximate);
