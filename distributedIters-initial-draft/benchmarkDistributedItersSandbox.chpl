@@ -36,10 +36,12 @@ config const load:calculation = calculation.pi;
 */
 enum testCase
 {
-  uniformlyrandom,
-  uniformlyrandomcontrol,
+  normal,
+  normalcontrol,
   outlier,
-  outliercontrol
+  outliercontrol,
+  uniformlyrandom,
+  uniformlyrandomcontrol
 };
 config const test:testCase = testCase.uniformlyrandom;
 
@@ -110,6 +112,31 @@ select test
       iterator=D,
       procedure=piApproximate);
   }
+
+  /*
+    Test #3: Iterate over a range that maps to values that are follow a normal
+    distribution.
+  */
+  when testCase.normal
+  {
+    writeln("Testing a normally-distributed workload...");
+    writeln("... guidedDistributed iterator, replicated distribution:");
+    const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
+    testNormallyDistributedWorkload(
+      arrayDomain=replicatedDomain,
+      iterator=guidedDistributed(controlDomain, coordinated=coordinated),
+      procedure=piApproximate);
+  }
+  when testCase.normalcontrol
+  {
+    writeln("Testing a normally-distributed workload...");
+    writeln("... default (control) iterator, block-distributed array:");
+    const D:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
+    testNormallyDistributedWorkload(
+      arrayDomain=D,
+      iterator=D,
+      procedure=piApproximate);
+  }
 }
 
 // Testing procedures.
@@ -117,7 +144,7 @@ select test
 proc testWorkload(array:[], iterator, procedure)
 {
   var timer:Timer;
-  writeArrayValueHistogram(array);
+  writeArrayStatistics(array);
   timer.start();
   forall i in iterator do
   {
@@ -170,6 +197,40 @@ proc testRandomOutliersWorkload(arrayDomain, iterator, procedure)
     randomOutliers[i] = translatedX;
   }
   testWorkload(randomOutliers, iterator, procedure);
+}
+
+proc testNormallyDistributedWorkload(arrayDomain, iterator, procedure)
+{
+  var normallyDistributed:[arrayDomain]real = 0.0;
+  fillRandom(normallyDistributed);
+  /*
+    https://en.wikipedia.org/wiki/Normal_distribution#Alternative_parameterizations
+
+      sigma is standard deviation (which should be "mean by three").
+      precision is 1/sigma.
+  */
+  const mean:real = 0.5;
+  const precision:int = 6;
+  const precisionByRootTwoPi:real = (precision:real/Math.sqrt(2*Math.pi));
+  const minusPrecisionSquaredByTwo:real = (-1.0 * ((precision:real ** 2.0)
+                                                   /2.0));
+  forall i in arrayDomain do
+  {
+    const x:real = normallyDistributed[i];
+    /*
+    const power:real = (minusPrecisionSquaredByTwo
+                        * ((x - mean) ** 2.0));
+    const translatedX:real = (precisionByRootTwoPi * (Math.e ** power));
+    */
+    const translatedX:real = ((6.0 / Math.sqrt(2.0 * Math.pi))
+                              * (Math.e
+                                 ** (-18.0
+                                     * ((x - 0.5)
+                                        ** 2.0))));
+    normallyDistributed[i] = translatedX;
+
+  }
+  testWorkload(normallyDistributed, iterator, procedure);
 }
 
 // Helpers.
@@ -382,6 +443,75 @@ proc isHarmonicDivisor(n:int):bool
     a dummy load for benchmarking.
   */
   return harmonicMean == round(harmonicMean);
+}
+
+proc writeArrayStatistics(array:[]real)
+{ // Write the given array's min, max, mean, standard deviation, and histogram.
+  var max,mean,min,squaredDeviationSum,stdDev,sum:real;
+  const arraySize:int = array.size;
+  if arraySize == 0
+  then writeln("writeArrayStatistics: array has zero-length domain");
+  else
+  {
+    // Initial.
+    const arrayLocalSubdomain = array.localSubdomain();
+    const firstIndex = arrayLocalSubdomain.first;
+    const initial = array[firstIndex];
+    min = initial;
+    max = initial;
+
+    // Mean.
+    for element in array do
+    {
+      if element < min then min = element;
+      if element > max then max = element;
+      sum += element;
+    }
+    mean = (sum/arraySize:real);
+
+    // Standard deviation.
+    for element in array do squaredDeviationSum += ((element - mean) ** 2.0);
+    stdDev = ((squaredDeviationSum/arraySize:real) ** (0.5));
+
+    writeln("writeArrayStatistics: min = ", min,
+            ", max = ", max,
+            ", mean = ", mean,
+            ", stdDev = ", stdDev);
+
+    // Histogram. Bin by stdDev.
+    var bins:[0..7]int;
+    const minusStdDev:real = (mean - stdDev);
+    const minusTwoStdDev:real = (mean - 2.0*stdDev);
+    const minusThreeStdDev:real = (mean - 3.0*stdDev);
+    const plusStdDev:real = (mean + stdDev);
+    const plusTwoStdDev:real = (mean + 2.0*stdDev);
+    const plusThreeStdDev:real = (mean + 3.0*stdDev);
+    for element in array do
+    {
+      if element < mean
+      then if element < minusTwoStdDev
+           then if element < minusThreeStdDev
+                then bins[0] += 1;
+                else bins[1] += 1;
+           else if element < minusStdDev
+                then bins[2] += 1;
+                else bins[3] += 1;
+      else if element < plusTwoStdDev
+           then if element < plusStdDev
+                then bins[4] += 1;
+                else bins[5] += 1;
+           else if element < plusThreeStdDev
+                then bins[6] += 1;
+                else bins[7] += 1;
+    }
+    writeln("writeArrayStatistics: Histogram:");
+    var current:real = minusThreeStdDev;
+    for bin in bins do
+    {
+      writeln((current - stdDev), " to ", current, ": ", bin);
+      current += stdDev;
+    }
+  }
 }
 
 proc writeArrayValueHistogram(a:[])
