@@ -211,22 +211,15 @@ proc testNormallyDistributedWorkload(arrayDomain, iterator, procedure)
   */
   const mean:real = 0.5;
   const precision:int = 6;
-  const precisionByRootTwoPi:real = (precision:real/Math.sqrt(2*Math.pi));
+  const precisionByRootTwoPi:real = (precision:real/((2.0 * Math.pi) ** 0.5));
   const minusPrecisionSquaredByTwo:real = (-1.0 * ((precision:real ** 2.0)
                                                    /2.0));
   forall i in arrayDomain do
   {
     const x:real = normallyDistributed[i];
-    /*
     const power:real = (minusPrecisionSquaredByTwo
                         * ((x - mean) ** 2.0));
     const translatedX:real = (precisionByRootTwoPi * (Math.e ** power));
-    */
-    const translatedX:real = ((6.0 / Math.sqrt(2.0 * Math.pi))
-                              * (Math.e
-                                 ** (-18.0
-                                     * ((x - 0.5)
-                                        ** 2.0))));
     normallyDistributed[i] = translatedX;
 
   }
