@@ -149,6 +149,7 @@ proc testWorkload(array:[], iterator, procedure)
   forall i in iterator do
   {
     const k:int = (array[i] * n):int;
+    if i == 0 then writeln(here.locale, ": value is ", k);
     procedure(k);
   }
   timer.stop();
