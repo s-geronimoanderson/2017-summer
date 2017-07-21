@@ -127,7 +127,7 @@ select test
     var replicatedArray:[replicatedDomain]real;
 
     fillNormallyDistributed(array);
-    copyToReplicands(replicatedArray, array);
+    forall i in replicatedDomain do replicatedArray[i] = array[i];
 
     testWorkload(
       array=replicatedArray,
