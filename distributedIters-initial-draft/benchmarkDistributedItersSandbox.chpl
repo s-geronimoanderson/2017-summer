@@ -51,6 +51,7 @@ config const n:int = 1000;
 
 const controlRange:range = 0..#n;
 const controlDomain:domain(1) = {controlRange};
+const globalRandomSeed:int = 13;
 
 select test
 {
@@ -236,7 +237,7 @@ proc copyToReplicands(replicatedArray, array)
 proc fillNormallyDistributed(array)
 {
   const arrayDomain = array.domain;
-  fillRandom(array);
+  fillRandom(array, globalRandomSeed);
   /*
     https://en.wikipedia.org/wiki/Normal_distribution#Alternative_parameterizations
 
