@@ -71,7 +71,7 @@ select test
     */
 
     writeln("... guidedDistributed iterator, replicated distribution:");
-    const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
+    const replicatedDomain:domain(1) dmapped Replicated() = controlDomain;
     testUniformlyRandomWorkload(
       arrayDomain=replicatedDomain,
       iterator=guidedDistributed(controlDomain, coordinated=coordinated),
@@ -96,7 +96,7 @@ select test
   {
     writeln("Testing a random outliers workload...");
     writeln("... guidedDistributed iterator, replicated distribution:");
-    const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
+    const replicatedDomain:domain(1) dmapped Replicated() = controlDomain;
     testRandomOutliersWorkload(
       arrayDomain=replicatedDomain,
       iterator=guidedDistributed(controlDomain, coordinated=coordinated),
@@ -121,20 +121,30 @@ select test
   {
     writeln("Testing a normally-distributed workload...");
     writeln("... guidedDistributed iterator, replicated distribution:");
+
     const replicatedDomain:domain(1) dmapped Replicated() = controlDomain;
-    testNormallyDistributedWorkload(
-      arrayDomain=replicatedDomain,
+    var array:[controlDomain]real;
+    var replicatedArray:[replicatedDomain]real;
+
+    fillNormallyDistributed(array);
+    copyToReplicands(replicatedArray, array);
+
+    testWorkload(
+      array=replicatedArray,
       iterator=guidedDistributed(controlDomain, coordinated=coordinated),
-      procedure=piApproximate,
-      replicatedDomain=true);
+      procedure=piApproximate);
   }
   when testCase.normalcontrol
   {
     writeln("Testing a normally-distributed workload...");
     writeln("... default (control) iterator, block-distributed array:");
     const D:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
-    testNormallyDistributedWorkload(
-      arrayDomain=D,
+    var blockDistributedArray:[D]real;
+
+    fillNormallyDistributed(blockDistributedArray);
+
+    testWorkload(
+      array=blockDistributedArray,
       iterator=D,
       procedure=piApproximate);
   }
@@ -211,13 +221,16 @@ proc testRandomOutliersWorkload(arrayDomain, iterator, procedure)
   testWorkload(randomOutliers, iterator, procedure);
 }
 
-proc testNormallyDistributedWorkload(arrayDomain,
-                                     iterator,
-                                     procedure,
-                                     replicatedDomain:bool=false)
+proc copyToReplicands(replicatedArray, array)
 {
-  var normallyDistributed:[arrayDomain]real = 0.0;
-  fillRandom(normallyDistributed);
+  forall (replicatedElement, element) in zip(replicatedArray, array)
+  do replicatedElement = element;
+}
+
+proc fillNormallyDistributed(array)
+{
+  const arrayDomain = array.domain;
+  fillRandom(array);
   /*
     https://en.wikipedia.org/wiki/Normal_distribution#Alternative_parameterizations
 
@@ -231,26 +244,15 @@ proc testNormallyDistributedWorkload(arrayDomain,
                                                    /2.0));
   forall i in arrayDomain do
   {
-    const x:real = normallyDistributed[i];
+    const x:real = array[i];
     const power:real = (minusPrecisionSquaredByTwo
                         * ((x - mean) ** 2.0));
     const translatedX:real = (precisionByRootTwoPi * (Math.e ** power));
-    normallyDistributed[i] = translatedX;
+    array[i] = translatedX;
 
   }
   // Scale to have values between 0 and 1.
-  normallyDistributed /= max(normallyDistributed);
-
-  // Copy to replicands if applicable.
-  if replicatedDomain
-  then
-  {
-    forall (replicatedElement, element) in zip(normallyDistributed,
-                                               normallyDistributed)
-    do replicatedElement = element;
-  }
-
-  testWorkload(normallyDistributed, iterator, procedure);
+  array /= max(array);
 }
 
 // Helpers.
