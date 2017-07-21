@@ -152,7 +152,7 @@ proc testWorkload(array:[], iterator, procedure)
     procedure(k);
   }
   timer.stop();
-  writeln("Total test time: ", timer.elapsed());
+  writeln("Total test time (n = ", n, "): ", timer.elapsed());
   timer.clear();
 }
 
