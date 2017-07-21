@@ -28,11 +28,14 @@ config const load:calculation = calculation.pi;
 /*
   Test cases:
 
-  uniformlyrandom -- Self-explanatory. Uses guided distributed iterator.
-  uniformlyrandomcontrol -- Same as above but with default iterator.
+  normal -- Normally distributed, scaled to [0,1].
+  normalcontrol -- Same as above but with block-distributed default iterator.
 
   outlier -- Most values close to average, handful of outliers.
-  outliercontrol -- Same as above but with default iterator.
+  outliercontrol -- Same as above but with block-distributed default iterator.
+
+  uniform -- Uniformly random. Uses guided distributed iterator.
+  uniformcontrol -- Same as above but with block-distributed default iterator.
 */
 enum testCase
 {
@@ -40,10 +43,10 @@ enum testCase
   normalcontrol,
   outlier,
   outliercontrol,
-  uniformlyrandom,
-  uniformlyrandomcontrol
+  uniform,
+  uniformcontrol
 };
-config const test:testCase = testCase.uniformlyrandom;
+config const test:testCase = testCase.uniform;
 
 config const coordinated:bool = false;
 // n determines the iteration count and work per iteration.
@@ -59,32 +62,34 @@ select test
     Test #1: Iterate over a range that maps to a list of uniform random integers.
     Do some work proportional to the value of the integers.
   */
-  when testCase.uniformlyrandom
+  when testCase.uniform
   {
     writeln("Testing a uniformly random workload...");
-
-    /*
-    writeln("... guidedDistributed iterator, default-distributed domain:");
-    testUniformlyRandomWorkload(
-      arrayDomain=controlDomain,
-      iterator=guidedDistributed(controlDomain, coordinated=coordinated),
-      procedure=piApproximate);
-    */
-
     writeln("... guidedDistributed iterator, replicated distribution:");
     const replicatedDomain:domain(1) dmapped Replicated() = controlDomain;
-    testUniformlyRandomWorkload(
-      arrayDomain=replicatedDomain,
+    var array:[controlDomain]real;
+    var replicatedArray:[replicatedDomain]real;
+
+    fillUniformlyRandom(array);
+
+    coforall L in Locales
+    do on L do for i in controlDomain do replicatedArray[i] = array[i];
+    testWorkload(
+      array=replicatedArray,
       iterator=guidedDistributed(controlDomain, coordinated=coordinated),
       procedure=piApproximate);
   }
-  when testCase.uniformlyrandomcontrol
+  when testCase.uniformcontrol
   {
     writeln("Testing a uniformly random workload...");
     writeln("... default (control) iterator, block-distributed array:");
     const D:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
-    testUniformlyRandomWorkload(
-      arrayDomain=D,
+    var blockDistributedArray:[D]real;
+
+    fillUniformlyRandom(blockDistributedArray);
+
+    testWorkload(
+      array=blockDistributedArray,
       iterator=D,
       procedure=piApproximate);
   }
@@ -98,8 +103,15 @@ select test
     writeln("Testing a random outliers workload...");
     writeln("... guidedDistributed iterator, replicated distribution:");
     const replicatedDomain:domain(1) dmapped Replicated() = controlDomain;
-    testRandomOutliersWorkload(
-      arrayDomain=replicatedDomain,
+    var array:[controlDomain]real;
+    var replicatedArray:[replicatedDomain]real;
+
+    fillRandomOutliers(array);
+
+    coforall L in Locales
+    do on L do for i in controlDomain do replicatedArray[i] = array[i];
+    testWorkload(
+      array=replicatedArray,
       iterator=guidedDistributed(controlDomain, coordinated=coordinated),
       procedure=piApproximate);
   }
@@ -108,8 +120,12 @@ select test
     writeln("Testing a random outliers workload...");
     writeln("... default (control) iterator, block-distributed array:");
     const D:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
-    testRandomOutliersWorkload(
-      arrayDomain=D,
+    var blockDistributedArray:[D]real;
+
+    fillRandomOutliers(blockDistributedArray);
+
+    testWorkload(
+      array=blockDistributedArray,
       iterator=D,
       procedure=piApproximate);
   }
@@ -128,9 +144,9 @@ select test
     var replicatedArray:[replicatedDomain]real;
 
     fillNormallyDistributed(array);
+
     coforall L in Locales
     do on L do for i in controlDomain do replicatedArray[i] = array[i];
-
     testWorkload(
       array=replicatedArray,
       iterator=guidedDistributed(controlDomain, coordinated=coordinated),
@@ -175,27 +191,15 @@ proc testWorkload(array:[], iterator, procedure)
   timer.clear();
 }
 
-proc testUniformlyRandomWorkload(arrayDomain,
-                                 iterator,
-                                 procedure,
-                                 replicatedDomain:bool=false)
+proc fillUniformlyRandom(array)
 {
-  var array:[arrayDomain]real = 0.0;
-  fillRandom(array);
-
-  if replicatedDomain
-  then
-  {
-    forall (replicatedElement, element) in zip(array, array)
-    do replicatedElement = element;
-  }
-  testWorkload(array, iterator, procedure);
+  fillRandom(array, globalRandomSeed);
 }
 
-proc testRandomOutliersWorkload(arrayDomain, iterator, procedure)
+proc fillRandomOutliers(array)
 {
-  var randomOutliers:[arrayDomain]real = 0.0;
-  fillRandom(randomOutliers);
+  const arrayDomain = array.domain;
+  fillRandom(array, globalRandomSeed);
   /*
     Creating outliers: a_3 through a_0 are coefficients for a cubic function
     extrapolation for these (x,y) points:
@@ -216,22 +220,15 @@ proc testRandomOutliersWorkload(arrayDomain, iterator, procedure)
   const a_0:real = 0.492857;
   forall i in arrayDomain do
   {
-    const x:real = randomOutliers[i];
+    const x:real = array[i];
     const xSquared:real = (x ** 2);
     const xCubed:real = (x * xSquared);
     const translatedX:real = ((a_3 * xCubed)
                               - (a_2 * xSquared)
                               + (a_1 * x)
                               + a_0);
-    randomOutliers[i] = translatedX;
+    array[i] = translatedX;
   }
-  testWorkload(randomOutliers, iterator, procedure);
-}
-
-proc copyToReplicands(replicatedArray, array)
-{
-  forall (replicatedElement, element) in zip(replicatedArray, array)
-  do replicatedElement = element;
 }
 
 proc fillNormallyDistributed(array)
