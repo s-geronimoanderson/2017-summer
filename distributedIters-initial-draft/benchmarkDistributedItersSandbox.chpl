@@ -127,7 +127,8 @@ select test
     var replicatedArray:[replicatedDomain]real;
 
     fillNormallyDistributed(array);
-    forall i in replicatedDomain do replicatedArray[i] = array[i];
+    coforall L in Locales
+    do on L do for i in controlDomain do replicatedArray[i] = array[i];
 
     testWorkload(
       array=replicatedArray,
