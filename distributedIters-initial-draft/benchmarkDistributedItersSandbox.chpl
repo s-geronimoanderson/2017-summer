@@ -223,6 +223,8 @@ proc testNormallyDistributedWorkload(arrayDomain, iterator, procedure)
     normallyDistributed[i] = translatedX;
 
   }
+  // Scale to have values between 0 and 1.
+  normallyDistributed /= max(normallyDistributed);
   testWorkload(normallyDistributed, iterator, procedure);
 }
 
@@ -438,12 +440,27 @@ proc isHarmonicDivisor(n:int):bool
   return harmonicMean == round(harmonicMean);
 }
 
+proc max(array:[]):real
+{
+  var max:real;
+  assert(array.size > 0, "max: array must have positive-size domain");
+  const arrayLocalSubdomain = array.localSubdomain();
+  const firstIndex = arrayLocalSubdomain.first;
+  const initial = array[firstIndex];
+  max = initial;
+  for element in array do
+  {
+    if element > max then max = element;
+  }
+  return max;
+}
+
 proc writeArrayStatistics(array:[]real)
 { // Write the given array's min, max, mean, standard deviation, and histogram.
   var max,mean,min,squaredDeviationSum,stdDev,sum:real;
   const arraySize:int = array.size;
   if arraySize == 0
-  then writeln("writeArrayStatistics: array has zero-length domain");
+  then writeln("writeArrayStatistics: array has zero-size domain");
   else
   {
     // Initial.
