@@ -121,11 +121,12 @@ select test
   {
     writeln("Testing a normally-distributed workload...");
     writeln("... guidedDistributed iterator, replicated distribution:");
-    const replicatedDomain:domain(1) dmapped ReplicatedDist() = controlDomain;
+    const replicatedDomain:domain(1) dmapped Replicated() = controlDomain;
     testNormallyDistributedWorkload(
       arrayDomain=replicatedDomain,
       iterator=guidedDistributed(controlDomain, coordinated=coordinated),
-      procedure=piApproximate);
+      procedure=piApproximate,
+      replicatedDomain=true);
   }
   when testCase.normalcontrol
   {
@@ -157,11 +158,21 @@ proc testWorkload(array:[], iterator, procedure)
   timer.clear();
 }
 
-proc testUniformlyRandomWorkload(arrayDomain, iterator, procedure)
+proc testUniformlyRandomWorkload(arrayDomain,
+                                 iterator,
+                                 procedure,
+                                 replicatedDomain:bool=false)
 {
-  var uniformlyRandom:[arrayDomain]real = 0.0;
-  fillRandom(uniformlyRandom);
-  testWorkload(uniformlyRandom, iterator, procedure);
+  var array:[arrayDomain]real = 0.0;
+  fillRandom(array);
+
+  if replicatedDomain
+  then
+  {
+    forall (replicatedElement, element) in zip(array, array)
+    do replicatedElement = element;
+  }
+  testWorkload(array, iterator, procedure);
 }
 
 proc testRandomOutliersWorkload(arrayDomain, iterator, procedure)
@@ -200,7 +211,10 @@ proc testRandomOutliersWorkload(arrayDomain, iterator, procedure)
   testWorkload(randomOutliers, iterator, procedure);
 }
 
-proc testNormallyDistributedWorkload(arrayDomain, iterator, procedure)
+proc testNormallyDistributedWorkload(arrayDomain,
+                                     iterator,
+                                     procedure,
+                                     replicatedDomain:bool=false)
 {
   var normallyDistributed:[arrayDomain]real = 0.0;
   fillRandom(normallyDistributed);
@@ -226,6 +240,16 @@ proc testNormallyDistributedWorkload(arrayDomain, iterator, procedure)
   }
   // Scale to have values between 0 and 1.
   normallyDistributed /= max(normallyDistributed);
+
+  // Copy to replicands if applicable.
+  if replicatedDomain
+  then
+  {
+    forall (replicatedElement, element) in zip(normallyDistributed,
+                                               normallyDistributed)
+    do replicatedElement = element;
+  }
+
   testWorkload(normallyDistributed, iterator, procedure);
 }
 
@@ -339,7 +363,7 @@ iter primeSieve(n:int)
 */
 proc piApproximate(k:int):real
 {
-  var current:real=0.0;
+  var current:real = 0.0;
   var fourN,tenN:real;
   for n in 0..k do
   {
