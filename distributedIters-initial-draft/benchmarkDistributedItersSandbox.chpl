@@ -161,9 +161,11 @@ proc testWorkload(array:[], iterator, procedure)
   forall i in iterator do
   {
     const k:int = (array[i] * n):int;
+    /*
     if i == n/2
     then for L in Locales
     do on L do writeln(here.locale, ": array[", i, "] = ", k);
+    */
     procedure(k);
   }
   timer.stop();
