@@ -76,7 +76,7 @@ select test
     do on L do for i in controlDomain do replicatedArray[i] = array[i];
     testWorkload(
       array=replicatedArray,
-      iterator=guidedDistributed(controlDomain, coordinated=coordinated),
+      iterator=guidedDistributed(controlRange, coordinated=coordinated),
       procedure=piApproximate);
   }
   when testCase.uniformcontrol
@@ -112,7 +112,7 @@ select test
     do on L do for i in controlDomain do replicatedArray[i] = array[i];
     testWorkload(
       array=replicatedArray,
-      iterator=guidedDistributed(controlDomain, coordinated=coordinated),
+      iterator=guidedDistributed(controlRange, coordinated=coordinated),
       procedure=piApproximate);
   }
   when testCase.outliercontrol
@@ -149,7 +149,7 @@ select test
     do on L do for i in controlDomain do replicatedArray[i] = array[i];
     testWorkload(
       array=replicatedArray,
-      iterator=guidedDistributed(controlDomain, coordinated=coordinated),
+      iterator=guidedDistributed(controlRange, coordinated=coordinated),
       procedure=piApproximate);
   }
   when testCase.normalcontrol
