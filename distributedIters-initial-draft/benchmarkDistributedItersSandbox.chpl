@@ -160,9 +160,9 @@ proc testControlPiWorkload()
 
   select test
   {
-    when testCase.uniform do fillUniformlyRandom(array);
-    when testCase.outlier do fillRandomOutliers(array);
-    when testCase.normal do fillNormallyDistributed(array);
+    when testCase.uniformcontrol do fillUniformlyRandom(array);
+    when testCase.outliercontrol do fillRandomOutliers(array);
+    when testCase.normalcontrol do fillNormallyDistributed(array);
   }
 
   timer.start();
