@@ -176,17 +176,19 @@ proc testGuidedPiWorkload()
   coforall L in Locales
   do on L do for i in controlDomain do replicatedArray[i] = array[i];
 
-  writeArrayStatistics(array);
+  //writeArrayStatistics(array);
 
   timer.start();
   forall i in guidedDistributed(controlRange, coordinated=coordinated) do
   {
     const k:int = (array[i] * n):int;
 
+    /*
     if i == n/2
     then for L in Locales
     do on L do writeln(here.locale, ": array[", i, "] = ", k);
-
+    */
+    
     piApproximate(k);
   }
   timer.stop();
