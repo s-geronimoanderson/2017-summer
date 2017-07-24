@@ -173,7 +173,7 @@ select test
 proc testWorkload(array:[], iterator, procedure)
 {
   var timer:Timer;
-  writeArrayStatistics(array);
+  // writeArrayStatistics(array);
   timer.start();
   forall i in iterator do
   {

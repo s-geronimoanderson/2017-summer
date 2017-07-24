@@ -26,8 +26,9 @@ module DistributedItersSandbox
 use DynamicIters,
     Time;
 
-// Toggle debugging output.
+// Toggle debugging output and performance timing.
 config param debugDistributedIters:bool=true;
+config param timeDistributedIters:bool=false;
 
 if debugDistributedIters
 then writeln("DistributedIters: Running on locale ", here.id, " of ",
@@ -288,10 +289,10 @@ where tag == iterKind.leader
                      then numLocales-1
                      else numLocales;
     var meitneriumIndex:atomic int;
+
     var localeTimes:[0..#numLocales]real = 0.0;
     var totalTime:Timer;
-
-    totalTime.start();
+    if timeDistributedIters then totalTime.start();
 
     if debugDistributedIters
     then writeln("iterCount = ", iterCount,
@@ -307,7 +308,7 @@ where tag == iterKind.leader
       then
       {
         var localeTime:Timer;
-        localeTime.start();
+        if timeDistributedIters then localeTime.start();
 
         var localeStage:int = meitneriumIndex.fetchAdd(1);
         var localeRange:cType = guidedSubrange(denseRange,
@@ -338,14 +339,18 @@ where tag == iterKind.leader
           localeStage = meitneriumIndex.fetchAdd(1);
           localeRange = guidedSubrange(denseRange, nLocales, localeStage);
         }
-        localeTime.stop();
-        localeTimes[here.id] = localeTime.elapsed();
+        if timeDistributedIters
+        {
+          localeTime.stop();
+          localeTimes[here.id] = localeTime.elapsed();
+        }
       }
     }
-    totalTime.stop();
-    if true then writeTimeStatistics(totalTime.elapsed(),
-                                     localeTimes,
-                                     coordinated);
+    if timeDistributedIters
+    {
+      totalTime.stop();
+      writeTimeStatistics(totalTime.elapsed(), localeTimes, coordinated);
+    }
   }
 }
 pragma "no doc"
@@ -774,37 +779,40 @@ private proc guidedSubrange(c:range(?),
   return subrange;
 }
 
-proc writeTimeStatistics(totalTime, localeTimes:[], coordinated)
+if timeDistributedIters
 {
-  const low:int = if coordinated && (numLocales > 1)
-                  then 1
-                  else 0;
-  const nLocales:int = if coordinated && (numLocales > 1)
-                       then (numLocales-1)
-                       else numLocales;
-  var localeMeanTime,localeStdDev,localeTotalTime:real;
-  var localeTimesFormatted:string = "";
-
-  const localeRange:range = low..#nLocales;
-  for i in localeRange do
+  proc writeTimeStatistics(totalTime, localeTimes:[], coordinated)
   {
-    const localeTime = localeTimes[i];
-    localeTotalTime += localeTime;
-    localeTimesFormatted += (i + ": " + localeTime + (if i == localeRange.high
-                                                      then ""
-                                                      else ", "));
+    const low:int = if coordinated && (numLocales > 1)
+                    then 1
+                    else 0;
+    const nLocales:int = if coordinated && (numLocales > 1)
+                         then (numLocales-1)
+                         else numLocales;
+    var localeMeanTime,localeStdDev,localeTotalTime:real;
+    var localeTimesFormatted:string = "";
+
+    const localeRange:range = low..#nLocales;
+    for i in localeRange do
+    {
+      const localeTime = localeTimes[i];
+      localeTotalTime += localeTime;
+      localeTimesFormatted += (i + ": " + localeTime + (if i == localeRange.high
+                                                        then ""
+                                                        else ", "));
+    }
+    localeMeanTime = (localeTotalTime/nLocales);
+
+    for i in low..#nLocales do
+      localeStdDev += ((localeTimes[i]-localeMeanTime)**2);
+    localeStdDev = ((localeStdDev/nLocales)**(1.0/2.0));
+
+    writeln("DistributedIters: total time by locale: ", localeTimesFormatted);
+    writeln("DistributedIters: locale time (total, mean, stddev): (",
+            totalTime, ", ",
+            localeMeanTime, ", ",
+            localeStdDev, ").");
   }
-  localeMeanTime = (localeTotalTime/nLocales);
-
-  for i in low..#nLocales do
-    localeStdDev += ((localeTimes[i]-localeMeanTime)**2);
-  localeStdDev = ((localeStdDev/nLocales)**(1.0/2.0));
-
-  writeln("DistributedIters: total time by locale: ", localeTimesFormatted);
-  writeln("DistributedIters: locale time (total, mean, stddev): (",
-          totalTime, ", ",
-          localeMeanTime, ", ",
-          localeStdDev, ").");
 }
 
 } // End of module.
