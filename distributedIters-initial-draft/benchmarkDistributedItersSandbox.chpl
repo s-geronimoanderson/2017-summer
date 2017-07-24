@@ -66,18 +66,7 @@ select test
   {
     writeln("Testing a uniformly random workload...");
     writeln("... guidedDistributed iterator, replicated distribution:");
-    const replicatedDomain:domain(1) dmapped Replicated() = controlDomain;
-    var array:[controlDomain]real;
-    var replicatedArray:[replicatedDomain]real;
-
-    fillUniformlyRandom(array);
-
-    coforall L in Locales
-    do on L do for i in controlDomain do replicatedArray[i] = array[i];
-    testWorkload(
-      array=replicatedArray,
-      iterator=guidedDistributed(controlRange, coordinated=coordinated),
-      procedure=piApproximate);
+    testGuidedPiWorkload();
   }
   when testCase.uniformcontrol
   {
@@ -169,6 +158,44 @@ select test
 }
 
 // Testing procedures.
+
+proc testGuidedPiWorkload()
+{
+  const replicatedDomain:domain(1) dmapped Replicated() = controlDomain;
+  var array:[controlDomain]real;
+  var replicatedArray:[replicatedDomain]real;
+  var timer:Timer;
+
+  select test
+  {
+    when testCase.uniform do fillUniformlyRandom(array);
+    when testCase.outlier do fillRandomOutliers(array);
+    when testCase.normal do fillNormallyDistributed(array);
+  }
+
+  coforall L in Locales
+  do on L do for i in controlDomain do replicatedArray[i] = array[i];
+
+  writeArrayStatistics(array);
+
+  timer.start();
+  forall i in guidedDistributed(controlRange, coordinated=coordinated) do
+  {
+    const k:int = (array[i] * n):int;
+
+    if i == n/2
+    then for L in Locales
+    do on L do writeln(here.locale, ": array[", i, "] = ", k);
+
+    piApproximate(k);
+  }
+  timer.stop();
+
+  writeln("Total test time (", test,
+          ", n = ", n, ", nl = ", numLocales, "): ", timer.elapsed());
+  timer.clear();
+}
+
 
 proc testWorkload(array:[], iterator, procedure)
 {
