@@ -72,15 +72,7 @@ select test
   {
     writeln("Testing a uniformly random workload...");
     writeln("... default (control) iterator, block-distributed array:");
-    const D:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
-    var blockDistributedArray:[D]real;
-
-    fillUniformlyRandom(blockDistributedArray);
-
-    testWorkload(
-      array=blockDistributedArray,
-      iterator=D,
-      procedure=piApproximate);
+    testControlPiWorkload();
   }
 
   /*
@@ -91,32 +83,13 @@ select test
   {
     writeln("Testing a random outliers workload...");
     writeln("... guidedDistributed iterator, replicated distribution:");
-    const replicatedDomain:domain(1) dmapped Replicated() = controlDomain;
-    var array:[controlDomain]real;
-    var replicatedArray:[replicatedDomain]real;
-
-    fillRandomOutliers(array);
-
-    coforall L in Locales
-    do on L do for i in controlDomain do replicatedArray[i] = array[i];
-    testWorkload(
-      array=replicatedArray,
-      iterator=guidedDistributed(controlRange, coordinated=coordinated),
-      procedure=piApproximate);
+    testGuidedPiWorkload();
   }
   when testCase.outliercontrol
   {
     writeln("Testing a random outliers workload...");
     writeln("... default (control) iterator, block-distributed array:");
-    const D:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
-    var blockDistributedArray:[D]real;
-
-    fillRandomOutliers(blockDistributedArray);
-
-    testWorkload(
-      array=blockDistributedArray,
-      iterator=D,
-      procedure=piApproximate);
+    testControlPiWorkload();
   }
 
   /*
@@ -127,33 +100,13 @@ select test
   {
     writeln("Testing a normally-distributed workload...");
     writeln("... guidedDistributed iterator, replicated distribution:");
-
-    const replicatedDomain:domain(1) dmapped Replicated() = controlDomain;
-    var array:[controlDomain]real;
-    var replicatedArray:[replicatedDomain]real;
-
-    fillNormallyDistributed(array);
-
-    coforall L in Locales
-    do on L do for i in controlDomain do replicatedArray[i] = array[i];
-    testWorkload(
-      array=replicatedArray,
-      iterator=guidedDistributed(controlRange, coordinated=coordinated),
-      procedure=piApproximate);
+    testGuidedPiWorkload();
   }
   when testCase.normalcontrol
   {
     writeln("Testing a normally-distributed workload...");
     writeln("... default (control) iterator, block-distributed array:");
-    const D:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
-    var blockDistributedArray:[D]real;
-
-    fillNormallyDistributed(blockDistributedArray);
-
-    testWorkload(
-      array=blockDistributedArray,
-      iterator=D,
-      procedure=piApproximate);
+    testControlPiWorkload();
   }
 }
 
@@ -188,7 +141,7 @@ proc testGuidedPiWorkload()
     then for L in Locales
     do on L do writeln(here.locale, ": array[", i, "] = ", k);
     */
-    
+
     piApproximate(k);
   }
   timer.stop();
@@ -198,6 +151,31 @@ proc testGuidedPiWorkload()
   timer.clear();
 }
 
+proc testControlPiWorkload()
+{
+  var timer:Timer;
+
+  const D:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
+  var array:[D]real;
+
+  select test
+  {
+    when testCase.uniform do fillUniformlyRandom(array);
+    when testCase.outlier do fillRandomOutliers(array);
+    when testCase.normal do fillNormallyDistributed(array);
+  }
+
+  timer.start();
+  forall i in D do
+  {
+    const k:int = (array[i] * n):int;
+    piApproximate(k);
+  }
+  timer.stop();
+  writeln("Total test time (", test,
+          ", n = ", n, ", nl = ", numLocales, "): ", timer.elapsed());
+  timer.clear();
+}
 
 proc testWorkload(array:[], iterator, procedure)
 {
