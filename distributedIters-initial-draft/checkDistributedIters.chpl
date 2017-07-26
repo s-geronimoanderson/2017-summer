@@ -18,17 +18,17 @@ var controlRange:range=1..n;
 
 // Tests.
 writeln("Testing a range (distributed guided iterator)...");
-var testGuidedDistributedRangeArray:[controlRange] int=0;
+var testDistributedGuidedRangeArray:[controlRange] int=0;
 
 timer.start();
 forall i in guidedDistributed(controlRange) do
-  testGuidedDistributedRangeArray[i] = testGuidedDistributedRangeArray[i]+1;
+  testDistributedGuidedRangeArray[i] = testDistributedGuidedRangeArray[i]+1;
 timer.stop();
 
 writeln("Time: ", timer.elapsed());
 timer.clear();
 
-checkCorrectness(testGuidedDistributedRangeArray,controlRange);
+checkCorrectness(testDistributedGuidedRangeArray,controlRange);
 
 // Helper functions.
 proc checkCorrectness(Arr:[]int,c)

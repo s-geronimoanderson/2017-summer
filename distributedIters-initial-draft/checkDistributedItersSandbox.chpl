@@ -1,18 +1,22 @@
 /*
-  Test to check the correctness of the distributed() iterator from the
+  Tests for verifying correctness of the distributedGuided() iterator from the
   DistributedIters module.
+
+  Test cases:
+  - Range inputs
+  - Domain inputs
+  - Array inputs
+  - Specific work locales
+  - Coordinated mode
 */
 use BlockDist,
     DistributedItersSandbox,
     DynamicIters,
-    Math,
-    Time;
-
-var timer:Timer;
+    Math;
 
 /*
   Control variables. These determine the test variables (defined later) and
-  provide control for checking correctness.
+  help us check correctness.
 */
 config const coordinated:bool=false;
 config const n:int=1000;

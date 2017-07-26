@@ -24,31 +24,37 @@ use BlockDist,
 // TODO: Have tests accept these overrides (currently defaults to pi).
 enum calculation { pi, perfect, harmonic };
 config const load:calculation = calculation.pi;
+config const timing:bool = false;
 
 /*
   Test cases:
 
-  normal -- Normally distributed, scaled to [0,1].
+  normalguided -- Normally distributed, scaled to [0,1].
   normalcontrol -- Same as above but with block-distributed default iterator.
 
-  outlier -- Most values close to average, handful of outliers.
+  outlierguided -- Most values close to average, handful of outliers.
   outliercontrol -- Same as above but with block-distributed default iterator.
 
-  uniform -- Uniformly random. Uses guided distributed iterator.
+  uniformguided -- Uniformly random. Uses guided distributed iterator.
   uniformcontrol -- Same as above but with block-distributed default iterator.
 */
 enum testCase
 {
-  normal,
+  normalguided,
   normalcontrol,
-  outlier,
+  outlierguided,
   outliercontrol,
-  uniform,
+  uniformguided,
   uniformcontrol
 };
-config const test:testCase = testCase.uniform;
+config const test:testCase = testCase.uniformguided;
 
+/*
+  If coordinated is true, then the guided iterator dedicates one locale to
+  distributing work to the remaining locales.
+*/
 config const coordinated:bool = false;
+
 // n determines the iteration count and work per iteration.
 config const n:int = 1000;
 
@@ -62,16 +68,22 @@ select test
     Test #1: Iterate over a range that maps to a list of uniform random integers.
     Do some work proportional to the value of the integers.
   */
-  when testCase.uniform
+  when testCase.uniformguided
   {
-    writeln("Testing a uniformly random workload...");
-    writeln("... guidedDistributed iterator, replicated distribution:");
+    if !timing then
+    {
+      writeln("Testing a uniformly random workload...");
+      writeln("... guidedDistributed iterator, replicated distribution:");
+    }
     testGuidedPiWorkload();
   }
   when testCase.uniformcontrol
   {
-    writeln("Testing a uniformly random workload...");
-    writeln("... default (control) iterator, block-distributed array:");
+    if !timing then
+    {
+      writeln("Testing a uniformly random workload...");
+      writeln("... default (control) iterator, block-distributed array:");
+    }
     testControlPiWorkload();
   }
 
@@ -79,16 +91,22 @@ select test
     Test #2: Iterate over a range that maps to values that are mostly the same
     except for a handful of much larger values to throw off the balance.
   */
-  when testCase.outlier
+  when testCase.outlierguided
   {
-    writeln("Testing a random outliers workload...");
-    writeln("... guidedDistributed iterator, replicated distribution:");
+    if !timing then
+    {
+      writeln("Testing a random outliers workload...");
+      writeln("... guidedDistributed iterator, replicated distribution:");
+    }
     testGuidedPiWorkload();
   }
   when testCase.outliercontrol
   {
-    writeln("Testing a random outliers workload...");
-    writeln("... default (control) iterator, block-distributed array:");
+    if !timing then
+    {
+      writeln("Testing a random outliers workload...");
+      writeln("... default (control) iterator, block-distributed array:");
+    }
     testControlPiWorkload();
   }
 
@@ -96,16 +114,22 @@ select test
     Test #3: Iterate over a range that maps to values that are follow a normal
     distribution.
   */
-  when testCase.normal
+  when testCase.normalguided
   {
-    writeln("Testing a normally-distributed workload...");
-    writeln("... guidedDistributed iterator, replicated distribution:");
+    if !timing then
+    {
+      writeln("Testing a normally-distributed workload...");
+      writeln("... guidedDistributed iterator, replicated distribution:");
+    }
     testGuidedPiWorkload();
   }
   when testCase.normalcontrol
   {
-    writeln("Testing a normally-distributed workload...");
-    writeln("... default (control) iterator, block-distributed array:");
+    if !timing then
+    {
+      writeln("Testing a normally-distributed workload...");
+      writeln("... default (control) iterator, block-distributed array:");
+    }
     testControlPiWorkload();
   }
 }
@@ -121,9 +145,9 @@ proc testGuidedPiWorkload()
 
   select test
   {
-    when testCase.uniform do fillUniformlyRandom(array);
-    when testCase.outlier do fillRandomOutliers(array);
-    when testCase.normal do fillNormallyDistributed(array);
+    when testCase.uniformguided do fillUniformlyRandom(array);
+    when testCase.outlierguided do fillRandomOutliers(array);
+    when testCase.normalguided do fillNormallyDistributed(array);
   }
 
   coforall L in Locales
@@ -142,12 +166,14 @@ proc testGuidedPiWorkload()
     do on L do writeln(here.locale, ": array[", i, "] = ", k);
     */
 
-    piApproximate(k);
+    isPerfect(k);
   }
   timer.stop();
 
-  writeln("Total test time (", test,
-          ", n = ", n, ", nl = ", numLocales, "): ", timer.elapsed());
+  if timing
+  then writeln("%dr".format(timer.elapsed()));
+  else writeln("Total test time (", test,
+               ", n = ", n, ", nl = ", numLocales, "): ", timer.elapsed());
   timer.clear();
 }
 
@@ -169,11 +195,15 @@ proc testControlPiWorkload()
   forall i in D do
   {
     const k:int = (array[i] * n):int;
-    piApproximate(k);
+    isPerfect(k);
   }
   timer.stop();
-  writeln("Total test time (", test,
-          ", n = ", n, ", nl = ", numLocales, "): ", timer.elapsed());
+
+  if timing
+  then writeln("%dr".format(timer.elapsed()));
+  else writeln("Total test time (", test,
+               ", n = ", n, ", nl = ", numLocales, "): ", timer.elapsed());
+
   timer.clear();
 }
 

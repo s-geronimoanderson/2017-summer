@@ -233,7 +233,8 @@ inline proc populateInputTypeInfo(c, ref inputType, ref inputTypeStr)
 iter guidedDistributed(c:range(?),
                        numTasks:int=0,
                        minChunkSize:int=1,
-                       coordinated:bool=false)
+                       coordinated:bool=false,
+                       workLocales=Locales)
 {
   if debugDistributedIters
   then writeln("Serial guided iterator, working with range ", c);
@@ -263,7 +264,8 @@ iter guidedDistributed(param tag:iterKind,
                        c:range(?),
                        numTasks:int=0,
                        minChunkSize:int=1,
-                       coordinated:bool=false)
+                       coordinated:bool=false,
+                       workLocales=Locales)
 where tag == iterKind.leader
 {
   const iterCount=c.length;
@@ -283,6 +285,12 @@ where tag == iterKind.leader
   }
   else
   {
+    /*
+      TODO: Use workLocales.
+      const nLocales = if coordinated && masterLocale in workLocales
+                       then (size(workLocales) - 1)
+                       else size(workLocales);
+    */
     const denseRangeHigh:int = denseRange.high;
     const masterLocale = here.locale;
     const nLocales = if coordinated && numLocales > 1
@@ -294,17 +302,13 @@ where tag == iterKind.leader
     var totalTime:Timer;
     if timeDistributedIters then totalTime.start();
 
-    if debugDistributedIters
-    then writeln("iterCount = ", iterCount,
-                 ", nLocales = ", nLocales);
-
     coforall L in Locales
     with (ref meitneriumIndex, ref localeTimes) do
     on L do
     {
       if numLocales == 1
          || !coordinated
-         || L != masterLocale // coordinated == true
+         || L != masterLocale // we know coordinated == true
       then
       {
         var localeTime:Timer;
@@ -359,6 +363,7 @@ iter guidedDistributed(param tag:iterKind,
                        numTasks:int,
                        minChunkSize:int=1,
                        coordinated:bool=false,
+                       workLocales=Locales,
                        followThis)
 where tag == iterKind.follower
 {
@@ -399,15 +404,15 @@ where tag == iterKind.follower
   :yields: Indices in the domain ``c``.
 
   This iterator is equivalent to a distributed version of the guided policy of
-  OpenMP: Given an input domain ``c``, each locale (except the calling locale)
-  receives chunks of approximately exponentially decreasing size, until the
-  remaining iterations reaches a minimum value, ``minChunkSize``, or there are
-  no remaining iterations in ``c``. The chunk size is the number of unassigned
-  iterations divided by the number of locales. Each locale then distributes
-  sub-chunks as tasks, where each sub-chunk size is the number of unassigned
-  local iterations divided by the number of tasks, ``numTasks``, and decreases
-  approximately exponentially to 1. The splitting strategy is therefore
-  adaptive.
+  OpenMP: Given an input domain ``c``, each locale (except the calling locale
+  if ``coordinated`` is true) receives chunks of approximately exponentially
+  decreasing size, until the remaining iterations reaches a minimum value,
+  ``minChunkSize``, or there are no remaining iterations in ``c``. The chunk
+  size is the number of unassigned iterations divided by the number of locales.
+  Each locale then distributes sub-chunks as tasks, where each sub-chunk size
+  is the number of unassigned local iterations divided by the number of tasks,
+  ``numTasks``, and decreases approximately exponentially to ``minChunkSize``
+  (defaults to 1). The splitting strategy is therefore adaptive.
 
   This iterator is available for serial and zippered contexts.
 */
