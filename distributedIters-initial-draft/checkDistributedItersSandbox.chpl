@@ -229,26 +229,18 @@ for i in distributed(testAlignedRange) do {
 */
 writeln("Testing a domain (serial distributed guided iterator)...");
 var serialDomainIteratorArray:[controlDomain] int=0;
-timer.start();
 for i in guidedDistributed(controlDomain,
                            coordinated=coordinated,
                            numTasks=numTasks)
 do serialDomainIteratorArray[i] = serialDomainIteratorArray[i]+1;
-timer.stop();
-writeln("Time (", n, "): ", timer.elapsed());
-timer.clear();
 checkCorrectness(serialDomainIteratorArray,controlDomain);
 
 writeln("Testing a domain (distributed guided iterator)...");
 var domainIteratorArray:[controlDomain] int=0;
-timer.start();
 forall i in guidedDistributed(controlDomain,
                               coordinated=coordinated,
                               numTasks=numTasks)
 do domainIteratorArray[i] = domainIteratorArray[i]+1;
-timer.stop();
-writeln("Time (", n, "): ", timer.elapsed());
-timer.clear();
 checkCorrectness(domainIteratorArray,controlDomain);
 
 
