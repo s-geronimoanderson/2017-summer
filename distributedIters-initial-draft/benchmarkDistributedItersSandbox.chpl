@@ -160,11 +160,11 @@ proc testGuidedPiWorkload()
   {
     const k:int = (array[i] * n):int;
 
-    /*
+
     if i == n/2
     then for L in Locales
     do on L do writeln(here.locale, ": array[", i, "] = ", k);
-    */
+
 
     isPerfect(k);
   }
@@ -195,6 +195,13 @@ proc testControlPiWorkload()
   forall i in D do
   {
     const k:int = (array[i] * n):int;
+
+
+    if i == n/2
+    then for L in Locales
+    do on L do writeln(here.locale, ": array[", i, "] = ", k);
+
+
     isPerfect(k);
   }
   timer.stop();
