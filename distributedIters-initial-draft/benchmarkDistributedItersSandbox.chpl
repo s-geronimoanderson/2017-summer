@@ -42,6 +42,8 @@ enum testCase
 {
   normalguided,
   normalcontrol,
+  identicalguided,
+  identicalcontrol,
   outlierguided,
   outliercontrol,
   uniformguided,
@@ -82,6 +84,28 @@ select test
     if !timing then
     {
       writeln("Testing a uniformly random workload...");
+      writeln("... default (control) iterator, block-distributed array:");
+    }
+    testControlPiWorkload();
+  }
+
+  /*
+    Test #4: Iterate over a range that maps to values that are the same.
+  */
+  when testCase.identicalguided
+  {
+    if !timing then
+    {
+      writeln("Testing an identical workload...");
+      writeln("... guidedDistributed iterator, replicated distribution:");
+    }
+    testGuidedPiWorkload();
+  }
+  when testCase.identicalcontrol
+  {
+    if !timing then
+    {
+      writeln("Testing an identical workload...");
       writeln("... default (control) iterator, block-distributed array:");
     }
     testControlPiWorkload();
@@ -147,6 +171,7 @@ proc testGuidedPiWorkload()
   {
     when testCase.uniformguided do fillUniformlyRandom(array);
     when testCase.outlierguided do fillRandomOutliers(array);
+    when testCase.identicalguided do fillIdentical(array);
     when testCase.normalguided do fillNormallyDistributed(array);
   }
 
@@ -158,7 +183,7 @@ proc testGuidedPiWorkload()
   timer.start();
   forall i in guidedDistributed(controlRange, coordinated=coordinated) do
   {
-    const k:int = (array[i] * n):int;
+    const k:real = (array[i] * n):int;
 
     /*
     if i == n/2
@@ -166,7 +191,15 @@ proc testGuidedPiWorkload()
     do on L do writeln(here.locale, ": array[", i, "] = ", k);
     */
 
-    isPerfect(k);
+    // Performance for isPerfect seems too similar between balanced and
+    // unbalanced for both guided and default.
+    isPerfect(k:int);
+
+    /* Replacing isPerfect with this, after we try completely uniform.
+    const kPiApproximate:real = (k * piApproximate(k:int));
+    const kPiApproximateBBP:real = (k * piApproximateBBP(kPiApproximate:int));
+    const piApproximation:real = piApproximate(kPiApproximateBBP:int);
+    */
   }
   timer.stop();
 
@@ -188,13 +221,14 @@ proc testControlPiWorkload()
   {
     when testCase.uniformcontrol do fillUniformlyRandom(array);
     when testCase.outliercontrol do fillRandomOutliers(array);
+    when testCase.identicalcontrol do fillIdentical(array);
     when testCase.normalcontrol do fillNormallyDistributed(array);
   }
 
   timer.start();
   forall i in D do
   {
-    const k:int = (array[i] * n):int;
+    const k:real = (array[i] * n):int;
 
     /*
     if i == n/2
@@ -202,7 +236,15 @@ proc testControlPiWorkload()
     do on L do writeln(here.locale, ": array[", i, "] = ", k);
     */
 
-    isPerfect(k);
+    // Performance for isPerfect seems too similar between balanced and
+    // unbalanced for both guided and default.
+    isPerfect(k:int);
+
+    /* Replacing isPerfect with this, after we try completely uniform.
+    const kPiApproximate:real = (k * piApproximate(k:int));
+    const kPiApproximateBBP:real = (k * piApproximateBBP(kPiApproximate:int));
+    const piApproximation:real = piApproximate(kPiApproximateBBP:int);
+    */
   }
   timer.stop();
 
@@ -233,6 +275,15 @@ proc testWorkload(array:[], iterator, procedure)
   writeln("Total test time (", test,
           ", n = ", n, ", nl = ", numLocales, "): ", timer.elapsed());
   timer.clear();
+}
+
+proc fillIdentical(array)
+{
+  const arrayDomain = array.domain;
+  forall i in arrayDomain do
+  {
+    array[i] = 0.5;
+  }
 }
 
 proc fillUniformlyRandom(array)
@@ -428,6 +479,48 @@ proc piApproximate(k:int):real
                                            + (1/(tenN + 9))));
   }
   return current/64.0;
+}
+
+/*
+  Returns a pi approximation to n iterations using Bailey, Borwein, and
+  Plouffe's formula.
+  https://en.wikipedia.org/wiki/Approximations_of_%CF%80#Efficient_methods
+*/
+proc piApproximateBBP(n:int):real
+{
+  var current:real = 0.0;
+  var eightK:real;
+  for k in 0..n do
+  {
+    eightK = (8.0 * k:real);
+    current += ((1.0/(16.0 ** k:real)) * ((4.0 / (eightK + 1.0))
+                                          - (2.0 / (eightK + 4.0))
+                                          - (1.0 / (eightK + 5.0))
+                                          - (1.0 / (eightK + 6.0))));
+  }
+  return current;
+}
+
+/*
+  Approximation of sin(phi)/phi, where phi is the golden ratio, using the
+  Weierstrass factorization theorem (where sin(phi)/phi is the product of
+  linear factors given by its roots). Its roots are integer multiples of pi,
+  which we also approximate.
+  https://en.wikipedia.org/wiki/Basel_problem
+*/
+proc sinPhiAllOverPhiApproximate(k:int=30):real
+{
+  const pi:real = piApproximate(k);
+  const sqrt5:real = Math.sqrt(5.0);
+  const phi:real = ((1.0 + sqrt5) / 2.0);
+  var current:real = 1.0;
+  for n in 1..k do
+  {
+    const phiOverNPi:real = (phi / (n:real * pi));
+    current *= ((1.0 - phiOverNPi)
+                * (1.0 + phiOverNPi));
+  }
+  return current;
 }
 
 /*
