@@ -282,7 +282,7 @@ proc fillIdentical(array)
   const arrayDomain = array.domain;
   forall i in arrayDomain do
   {
-    array[i] = 0.5;
+    array[i] = 0.375;
   }
 }
 
