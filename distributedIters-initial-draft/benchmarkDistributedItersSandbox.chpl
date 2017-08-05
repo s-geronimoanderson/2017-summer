@@ -13,43 +13,47 @@ use BlockDist,
     Sort,
     Time;
 
-/*
-  Loads:
-
-  pi -- Iterated pi approximation. Jupiter: 43 s with 4 tasks (n = 100,000)
-  perfect -- Check if numbers are perfect. Kaibab: 20 s with 4 tasks (n = 10,000)
-  harmonic -- Check if numbers are harmonic divisors. Kaibab: 30 s with 4 tasks
-              (n = 10,000)
-*/
-// TODO: Have tests accept these overrides (currently defaults to pi).
-enum calculation { pi, perfect, harmonic };
-config const load:calculation = calculation.pi;
+// If true, write out only the test time result (ideal for shell scripts).
 config const timing:bool = false;
+// Print debugging output.
+config const debug:bool = false;
 
 /*
-  Test cases:
+  Benchmark mode (iterator):
 
-  normalguided -- Normally distributed, scaled to [0,1].
-  normalcontrol -- Same as above but with block-distributed default iterator.
+  default -- The block-distributed default iterator.
+  guided -- The distributed guided load-balancing iterator.
+*/
+enum iterator
+{
+  default,
+  guided
+};
+config const mode:iterator = iterator.guided;
 
-  outlierguided -- Most values close to average, handful of outliers.
-  outliercontrol -- Same as above but with block-distributed default iterator.
+/*
+  Test cases for array values:
 
-  uniformguided -- Uniformly random. Uses guided distributed iterator.
-  uniformcontrol -- Same as above but with block-distributed default iterator.
+  constant -- All array elements have the same constant value.
+  linear -- Array values follow some linear function (default y = x).
+  normal -- Normally distributed, scaled to [0,1].
+  outlier -- Most values close to average with handful of outliers.
+  uniform -- Uniformly random.
 */
 enum testCase
 {
-  normalguided,
-  normalcontrol,
-  identicalguided,
-  identicalcontrol,
-  outlierguided,
-  outliercontrol,
-  uniformguided,
-  uniformcontrol
+  constant,
+  normal,
+  identity,
+  outlier,
+  rampdown,
+  rampup,
+  uniform
 };
-config const test:testCase = testCase.uniformguided;
+config const test:testCase = testCase.uniform;
+
+// Use this value for the constant test case.
+config const constant:real = 0.4;
 
 /*
   If coordinated is true, then the guided iterator dedicates one locale to
@@ -64,121 +68,40 @@ const controlRange:range = 0..#n;
 const controlDomain:domain(1) = {controlRange};
 const globalRandomSeed:int = 13;
 
-select test
+select mode
 {
-  /*
-    Test #1: Iterate over a range that maps to a list of uniform random integers.
-    Do some work proportional to the value of the integers.
-  */
-  when testCase.uniformguided
-  {
-    if !timing then
-    {
-      writeln("Testing a uniformly random workload...");
-      writeln("... guidedDistributed iterator, replicated distribution:");
-    }
-    testGuidedPiWorkload();
-  }
-  when testCase.uniformcontrol
-  {
-    if !timing then
-    {
-      writeln("Testing a uniformly random workload...");
-      writeln("... default (control) iterator, block-distributed array:");
-    }
-    testControlPiWorkload();
-  }
-
-  /*
-    Test #4: Iterate over a range that maps to values that are the same.
-  */
-  when testCase.identicalguided
-  {
-    if !timing then
-    {
-      writeln("Testing an identical workload...");
-      writeln("... guidedDistributed iterator, replicated distribution:");
-    }
-    testGuidedPiWorkload();
-  }
-  when testCase.identicalcontrol
-  {
-    if !timing then
-    {
-      writeln("Testing an identical workload...");
-      writeln("... default (control) iterator, block-distributed array:");
-    }
-    testControlPiWorkload();
-  }
-
-  /*
-    Test #2: Iterate over a range that maps to values that are mostly the same
-    except for a handful of much larger values to throw off the balance.
-  */
-  when testCase.outlierguided
-  {
-    if !timing then
-    {
-      writeln("Testing a random outliers workload...");
-      writeln("... guidedDistributed iterator, replicated distribution:");
-    }
-    testGuidedPiWorkload();
-  }
-  when testCase.outliercontrol
-  {
-    if !timing then
-    {
-      writeln("Testing a random outliers workload...");
-      writeln("... default (control) iterator, block-distributed array:");
-    }
-    testControlPiWorkload();
-  }
-
-  /*
-    Test #3: Iterate over a range that maps to values that are follow a normal
-    distribution.
-  */
-  when testCase.normalguided
-  {
-    if !timing then
-    {
-      writeln("Testing a normally-distributed workload...");
-      writeln("... guidedDistributed iterator, replicated distribution:");
-    }
-    testGuidedPiWorkload();
-  }
-  when testCase.normalcontrol
-  {
-    if !timing then
-    {
-      writeln("Testing a normally-distributed workload...");
-      writeln("... default (control) iterator, block-distributed array:");
-    }
-    testControlPiWorkload();
-  }
+  when iterator.default do testControlWorkload();
+  when iterator.guided do testGuidedWorkload();
 }
 
 // Testing procedures.
 
-proc testGuidedPiWorkload()
+proc testGuidedWorkload()
 {
+  if !timing
+  then writeln("Using distributed guided iterator, running ", test,
+               " test case...");
+  var timer:Timer;
+
   const replicatedDomain:domain(1) dmapped Replicated() = controlDomain;
   var array:[controlDomain]real;
   var replicatedArray:[replicatedDomain]real;
-  var timer:Timer;
 
   select test
   {
-    when testCase.uniformguided do fillUniformlyRandom(array);
-    when testCase.outlierguided do fillRandomOutliers(array);
-    when testCase.identicalguided do fillIdentical(array);
-    when testCase.normalguided do fillNormallyDistributed(array);
+    when testCase.constant do fillConstant(array, constant);
+    when testCase.identity do fillIdentity(array);
+    when testCase.normal do fillNormallyDistributed(array);
+    when testCase.outlier do fillLogisticOutliers(array);
+    when testCase.rampdown do fillRampDown(array);
+    when testCase.rampup do fillRampUp(array);
+    when testCase.uniform do fillUniformlyRandom(array);
   }
 
   coforall L in Locales
   do on L do for i in controlDomain do replicatedArray[i] = array[i];
 
-  //writeArrayStatistics(array);
+  if debug then writeArrayStatistics(array);
 
   timer.start();
   forall i in guidedDistributed(controlRange, coordinated=coordinated) do
@@ -210,8 +133,12 @@ proc testGuidedPiWorkload()
   timer.clear();
 }
 
-proc testControlPiWorkload()
+proc testControlWorkload()
 {
+  if !timing
+  then writeln("Using default (control) iterator, running ", test,
+               " test case...");
+
   var timer:Timer;
 
   const D:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
@@ -219,11 +146,16 @@ proc testControlPiWorkload()
 
   select test
   {
-    when testCase.uniformcontrol do fillUniformlyRandom(array);
-    when testCase.outliercontrol do fillRandomOutliers(array);
-    when testCase.identicalcontrol do fillIdentical(array);
-    when testCase.normalcontrol do fillNormallyDistributed(array);
+    when testCase.constant do fillConstant(array, constant);
+    when testCase.normal do fillNormallyDistributed(array);
+    when testCase.identity do fillIdentity(array);
+    when testCase.outlier do fillLogisticOutliers(array);
+    when testCase.rampdown do fillRampDown(array);
+    when testCase.rampup do fillRampUp(array);
+    when testCase.uniform do fillUniformlyRandom(array);
   }
+
+  if debug then writeArrayStatistics(array);
 
   timer.start();
   forall i in D do
@@ -256,42 +188,72 @@ proc testControlPiWorkload()
   timer.clear();
 }
 
-proc testWorkload(array:[], iterator, procedure)
-{
-  var timer:Timer;
-  // writeArrayStatistics(array);
-  timer.start();
-  forall i in iterator do
-  {
-    const k:int = (array[i] * n):int;
-    /*
-    if i == n/2
-    then for L in Locales
-    do on L do writeln(here.locale, ": array[", i, "] = ", k);
-    */
-    procedure(k);
-  }
-  timer.stop();
-  writeln("Total test time (", test,
-          ", n = ", n, ", nl = ", numLocales, "): ", timer.elapsed());
-  timer.clear();
-}
+/*
+  Array fills.
+*/
 
-proc fillIdentical(array)
+proc fillArrayByElement(array, f)
 {
   const arrayDomain = array.domain;
   forall i in arrayDomain do
   {
-    array[i] = 0.375;
+    const x = array[i];
+    array[i] = f(x);
   }
 }
 
-proc fillUniformlyRandom(array)
+proc fillArrayByIndex(array, f)
 {
-  fillRandom(array, globalRandomSeed);
+  const arrayDomain = array.domain;
+  forall i in arrayDomain do array[i] = f(i);
 }
 
-proc fillRandomOutliers(array)
+proc fillConstant(array, constant)
+{
+  const arrayDomain = array.domain;
+  forall i in arrayDomain do array[i] = constant;
+}
+
+proc fillLinear(array, slope, yIntercept)
+{
+  const arrayDomain = array.domain;
+  forall i in arrayDomain do array[i] = ((slope * i) + yIntercept);
+}
+
+proc fillIdentity(array) { fillLinear(array, (1.0/n:real), 0); }
+proc fillRampDown(array) { fillLinear(array, (-1.0/n:real), 1); }
+proc fillRampUp(array) { fillLinear(array, (1.0/n:real), 0); }
+proc fillUniformlyRandom(array) { fillRandom(array, globalRandomSeed); }
+
+proc fillLogisticOutliers(array)
+{
+  const arrayDomain = array.domain;
+  fillRandom(array, globalRandomSeed);
+  /*
+    This function creates extreme outliers using the logistic function:
+    https://en.wikipedia.org/wiki/Logistic_function
+
+    We use x_0 = 0.8 as the sigmoid's midpoint, L = 0.625 as the curve's
+    maximum value, and k = 135.805 as the curve's slope, then translate it by
+    0.375. This means the function
+
+      0.625/(1 + e^(-135.805 * (x - 0.8))) + 0.375
+
+    translates x values in the interval [0,1] such that ~80% are 0.375, ~20%
+    are close to 1, and there is a steep value transition from 0.375 to 1.
+  */
+  const x_0:real = 0.8;
+  const L:real = 0.625;
+  const k:real = 135.805;
+  const y_0:real = 0.375;
+  forall i in arrayDomain do
+  {
+    const x:real = array[i];
+    array[i] = ((0.625 / (1 + (Math.e ** (-135.805 * (x - 0.8))))) + 0.375);
+  }
+}
+
+proc fillCubicOutliers(array)
 {
   const arrayDomain = array.domain;
   fillRandom(array, globalRandomSeed);
@@ -301,8 +263,12 @@ proc fillRandomOutliers(array)
 
       {(0, 0.5), (0.25, 0.5), (0.5, 0.5), (0.75, 0.5), (1, 1)}.
 
-    The function translates x values in the interval [0,1] into values that
-    follow this distribution:
+    Thus the function
+
+      a_3*x^3 + a_2*x^2 + a_1*x + a_0
+
+    translates x values in the interval [0,1] into values that follow this
+    distribution:
 
       ~80% are between 0.45 and 0.55,
       ~10% are between 0.55 and 0.75,
@@ -310,7 +276,7 @@ proc fillRandomOutliers(array)
       ~5% are between 0.85 and 1.
   */
   const a_3:real = 2.66667;
-  const a_2:real = 2.85714;
+  const a_2:real = -2.85714;
   const a_1:real = 0.690476;
   const a_0:real = 0.492857;
   forall i in arrayDomain do
@@ -319,7 +285,7 @@ proc fillRandomOutliers(array)
     const xSquared:real = (x ** 2);
     const xCubed:real = (x * xSquared);
     const translatedX:real = ((a_3 * xCubed)
-                              - (a_2 * xSquared)
+                              + (a_2 * xSquared)
                               + (a_1 * x)
                               + a_0);
     array[i] = translatedX;
@@ -355,93 +321,6 @@ proc fillNormallyDistributed(array)
 }
 
 // Helpers.
-
-iter fibo(n:int)
-{ // Yields the Fibonacci sequence from the zeroth number to the nth.
-  var current:int=0,
-      next:int=1;
-  for i in 0..n
-  {
-    yield current;
-    current += next;
-    current <=> next;
-  }
-}
-
-iter fact(n:int)
-{ // Yields the factorial sequence from zero factorial up to n factorial.
-  assert(n >= 0, "n must be a nonnegative integer");
-  var current:int=1;
-  if n == 0
-  then yield 1;
-  else
-  {
-    yield 1;
-    for i in 1..n
-    {
-      current *= i;
-      yield current;
-    }
-  }
-}
-
-/*
-  Yields up to k successive refinements of the Taylor series (at a = 0) for
-  the exponential function e ** x.
-  https://en.wikipedia.org/wiki/Taylor_series
-*/
-iter expoSeries(x:real,k:int=30):real
-{
-  var current:real=0.0;
-  for (n_factorial,n) in zip(fact(k),0..k)
-  {
-    current += (x ** n) / n_factorial;
-    yield current;
-  }
-}
-
-/*
-  Yields a pi approximation to k iterations using Fabrice Bellard's formula.
-  https://en.wikipedia.org/wiki/Approximations_of_%CF%80#Efficient_methods
-*/
-iter piFabriceBellard(k:int)
-{
-  var current:real=0.0;
-  var fourN, tenN : int;
-  for n in 0..k do
-  {
-    fourN = 4*n;
-    tenN = 10*n;
-    current += ((((-1) ** n)/2 ** tenN) * (-(32/(fourN + 1))
-                                           - (1/(fourN + 3))
-                                           + (256/(tenN + 1))
-                                           - (64/(tenN + 3))
-                                           - (4/(tenN + 5))
-                                           - (4/(tenN + 7))
-                                           + (1/(tenN + 9))));
-  }
-  yield current/64;
-}
-
-/*
-  Yields a pi approximation to n iterations using Bailey, Borwein, and
-  Plouffe's formula.
-  https://en.wikipedia.org/wiki/Approximations_of_%CF%80#Efficient_methods
-*/
-iter piBBP(n:int)
-{
-  var current:real=0.0;
-  var eightK:int;
-  for k in 0..n do
-  {
-    eightK = 8*k;
-    current += ((1/(16**k)) * ((4/(eightK + 1))
-                               - (2/(eightK + 4))
-                               - (1/(eightK + 5))
-                               - (1/(eightK + 6))));
-    yield current;
-  }
-}
 
 iter primeSieve(n:int)
 { // Sieve of Eratosthenes: Yield all primes up to n.
@@ -502,28 +381,6 @@ proc piApproximateBBP(n:int):real
 }
 
 /*
-  Approximation of sin(phi)/phi, where phi is the golden ratio, using the
-  Weierstrass factorization theorem (where sin(phi)/phi is the product of
-  linear factors given by its roots). Its roots are integer multiples of pi,
-  which we also approximate.
-  https://en.wikipedia.org/wiki/Basel_problem
-*/
-proc sinPhiAllOverPhiApproximate(k:int=30):real
-{
-  const pi:real = piApproximate(k);
-  const sqrt5:real = Math.sqrt(5.0);
-  const phi:real = ((1.0 + sqrt5) / 2.0);
-  var current:real = 1.0;
-  for n in 1..k do
-  {
-    const phiOverNPi:real = (phi / (n:real * pi));
-    current *= ((1.0 - phiOverNPi)
-                * (1.0 + phiOverNPi));
-  }
-  return current;
-}
-
-/*
   Integer factorization. Transliterated from Python version on Wikipedia.
   (Python version commented on right for reference.)
 
@@ -576,36 +433,6 @@ proc isPerfect(n:int):bool
   var sum:int;
   for p in properDivisorsN do sum += p;
   return sum == n;
-}
-
-/*
-  A harmonic divisor number, or Ore number, is a positive integer whose
-  divisors have a harmonic mean that is an integer.
-  https://en.wikipedia.org/wiki/Harmonic_divisor_number
-*/
-proc isHarmonicDivisor(n:int):bool
-{
-  if n < 1 then return false;
-  if n == 1 then return true;
-  var numerator,denominator,harmonicMean:real;
-  var divisorsN:domain(int) = divisors(n);
-  numerator = divisorsN.size;
-  for p in divisorsN do denominator += 1.0/(p:real);
-  harmonicMean = (numerator/denominator);
-  /*
-    TODO: We would like to do this here:
-
-      return harmonicMean == round(harmonicMean)
-
-    But, we cannot, because for n = 6, we get harmonicMean = 2.0 but
-    ceil(harmonicMean) = 3.0. That is, the harmonic mean calculation includes
-    some infinitesmial amount such that the above desired comparison
-    expression fails even when it should succeed. We could use some kind of
-    fraction representation with algebraic manipulation to make this
-    procedure work correctly... but currently it does not. It is still good as
-    a dummy load for benchmarking.
-  */
-  return harmonicMean == round(harmonicMean);
 }
 
 proc max(array:[]):real
@@ -692,23 +519,34 @@ proc writeArrayStatistics(array:[]real)
   }
 }
 
-proc writeArrayValueHistogram(a:[])
-{ // Write the given array's values histogram.
-  // TODO: Parameterize bin width?
-  var firstQuarter,secondQuarter,thirdQuarter,fourthQuarter:int;
-  for i in a do
-  {
-    const k:int=(i * n):int;
-    if k < n:real/4
-    then firstQuarter += 1;
-    else if k < n:real/2
-         then secondQuarter += 1;
-         else if k < n:real*3/4
-              then thirdQuarter += 1;
-              else fourthQuarter += 1;
-  }
-  writeln("0-", n:real/4 - 1/n:real, ": ", firstQuarter,
-          ", ", n:real/4, "-", n:real/2 - 1/n:real, ": ", secondQuarter,
-          ", ", n:real/2, "-", n:real*3/4 - 1/n:real, ": ", thirdQuarter,
-          ", ", n:real*3/4, "-", n:real - 1/n:real, ": ", fourthQuarter);
+// EOF
+
+/*
+  A harmonic divisor number, or Ore number, is a positive integer whose
+  divisors have a harmonic mean that is an integer.
+  https://en.wikipedia.org/wiki/Harmonic_divisor_number
+*/
+proc isHarmonicDivisor(n:int):bool
+{
+  if n < 1 then return false;
+  if n == 1 then return true;
+  var numerator,denominator,harmonicMean:real;
+  var divisorsN:domain(int) = divisors(n);
+  numerator = divisorsN.size;
+  for p in divisorsN do denominator += 1.0/(p:real);
+  harmonicMean = (numerator/denominator);
+  /*
+    TODO: We would like to do this here:
+
+      return harmonicMean == round(harmonicMean)
+
+    But, we cannot, because for n = 6, we get harmonicMean = 2.0 but
+    ceil(harmonicMean) = 3.0. That is, the harmonic mean calculation includes
+    some infinitesmial amount such that the above desired comparison
+    expression fails even when it should succeed. We could use some kind of
+    fraction representation with algebraic manipulation to make this
+    procedure work correctly... but currently it does not. It is still good as
+    a dummy load for benchmarking.
+  */
+  return harmonicMean == round(harmonicMean);
 }
