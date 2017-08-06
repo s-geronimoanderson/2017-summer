@@ -248,7 +248,7 @@ proc fillLogisticOutliers(array)
   const y_0:real = 0.375;
   forall i in arrayDomain do
   {
-    const x:real = array[i];
+    const x:real = (0.9 * array[i]);
     array[i] = ((0.625 / (1 + (Math.e ** (-135.805 * (x - 0.8))))) + 0.375);
   }
 }
