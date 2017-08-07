@@ -37,10 +37,6 @@ config const mode:iterator = iterator.guided;
   constant -- All array elements have the same constant value.
   normal -- Normally distributed, scaled to [0,1].
   outlier -- Most values close to average with handful of outliers.
-    (Alias for outliercubic.)
-  outliercubic -- Cubic function for outliers (see outlier).
-  outlierlogistic -- Logistic function for outliers (see outlier). Slightly
-    more artificial shape compared to outliercubic.
   rampup -- Values follow a linearly increasing function.
   rampdown -- Values follow a linearly decreasing function.
   uniform -- Uniformly random.
@@ -48,12 +44,12 @@ config const mode:iterator = iterator.guided;
 enum testCase
 {
   constant,
+  kryptonite,
   normal,
   outlier,
-  outliercubic,
-  outlierlogistic,
   rampdown,
   rampup,
+  stacked,
   uniform
 };
 config const test:testCase = testCase.uniform;
@@ -94,12 +90,12 @@ proc testGuidedWorkload()
   select test
   {
     when testCase.constant do fillConstant(array);
+    when testCase.kryptonite do fillKryptonite(array);
     when testCase.normal do fillNormallyDistributed(array);
     when testCase.outlier do fillCubicOutliers(array);
-    when testCase.outliercubic do fillCubicOutliers(array);
-    when testCase.outlierlogistic do fillLogisticOutliers(array);
     when testCase.rampdown do fillRampDown(array);
     when testCase.rampup do fillRampUp(array);
+    when testCase.stacked do fillStacked(array);
     when testCase.uniform do fillUniformlyRandom(array);
   }
 
@@ -113,21 +109,8 @@ proc testGuidedWorkload()
   {
     const k:real = (array[i] * n):int;
 
-    /*
-    if i == n/2
-    then for L in Locales
-    do on L do writeln(here.locale, ": array[", i, "] = ", k);
-    */
-
-    // Performance for isPerfect seems too similar between balanced and
-    // unbalanced for both guided and default.
+    // Simulate work.
     isPerfect(k:int);
-
-    /* Replacing isPerfect with this, after we try completely uniform.
-    const kPiApproximate:real = (k * piApproximate(k:int));
-    const kPiApproximateBBP:real = (k * piApproximateBBP(kPiApproximate:int));
-    const piApproximation:real = piApproximate(kPiApproximateBBP:int);
-    */
   }
   timer.stop();
 
@@ -152,12 +135,12 @@ proc testControlWorkload()
   select test
   {
     when testCase.constant do fillConstant(array);
+    when testCase.kryptonite do fillKryptonite(array);
     when testCase.normal do fillNormallyDistributed(array);
     when testCase.outlier do fillCubicOutliers(array);
-    when testCase.outliercubic do fillCubicOutliers(array);
-    when testCase.outlierlogistic do fillLogisticOutliers(array);
     when testCase.rampdown do fillRampDown(array);
     when testCase.rampup do fillRampUp(array);
+    when testCase.stacked do fillStacked(array);
     when testCase.uniform do fillUniformlyRandom(array);
   }
 
@@ -168,21 +151,8 @@ proc testControlWorkload()
   {
     const k:real = (array[i] * n):int;
 
-    /*
-    if i == n/2
-    then for L in Locales
-    do on L do writeln(here.locale, ": array[", i, "] = ", k);
-    */
-
-    // Performance for isPerfect seems too similar between balanced and
-    // unbalanced for both guided and default.
+    // Simulate work.
     isPerfect(k:int);
-
-    /* Replacing isPerfect with this, after we try completely uniform.
-    const kPiApproximate:real = (k * piApproximate(k:int));
-    const kPiApproximateBBP:real = (k * piApproximateBBP(kPiApproximate:int));
-    const piApproximation:real = piApproximate(kPiApproximateBBP:int);
-    */
   }
   timer.stop();
 
@@ -190,7 +160,6 @@ proc testControlWorkload()
   then writeln("%dr".format(timer.elapsed()));
   else writeln("Total test time (", test,
                ", n = ", n, ", nl = ", numLocales, "): ", timer.elapsed());
-
   timer.clear();
 }
 
@@ -253,31 +222,51 @@ proc fillCubicOutliers(array)
   normalizeSum(array);
 }
 
-proc fillLogisticOutliers(array)
+proc fillKryptonite(array, desiredProcessorCount:int=0)
 {
+  const processorCount:int = if desiredProcessorCount == 0
+                             then if dataParTasksPerLocale == 0
+                                  then here.maxTaskPar
+                                  else dataParTasksPerLocale
+                             else desiredProcessorCount;
   const arrayDomain = array.domain;
-  fillRandom(array, globalRandomSeed);
+  const arraySize:int = array.size;
   /*
-    This function creates extreme outliers using the logistic function:
-    https://en.wikipedia.org/wiki/Logistic_function
-
-    We use x_0 = 0.8 as the sigmoid's midpoint, L = 0.625 as the curve's
-    maximum value, and k = 135.805 as the curve's slope, then translate it by
-    0.375. This means the function
-
-      0.625/(1 + e^(-135.805 * (x - 0.8))) + 0.375
-
-    translates x values in the interval [0,1] such that ~80% are 0.375, ~20%
-    are close to 1, and there is a steep value transition from 0.375 to 1.
+    This fill uses the guided iterator's behavior against it by putting almost
+    all the work into the first work unit, using the same closed-form
+    expression that the iterator uses for dividing work units.
   */
-  const x_0:real = 0.8;
-  const L:real = 0.625;
-  const k:real = 135.805;
-  const y_0:real = 0.375;
+  const lengthOverProcessorCount:real = (arraySize:real
+                                         / processorCount:real);
+  const commonRatio:real = (1.0 - (1.0 / processorCount:real));
+
   forall i in arrayDomain do
   {
-    const x:real = (0.9 * array[i]);
-    array[i] = ((0.625 / (1 + (Math.e ** (-135.805 * (x - 0.8))))) + 0.375);
+    array[i] = (lengthOverProcessorCount * (commonRatio ** i));
+  }
+  normalizeSum(array);
+}
+
+proc fillStacked(array, desiredProcessorCount:int=0)
+{
+  const processorCount:int = if desiredProcessorCount == 0
+                             then if dataParTasksPerLocale == 0
+                                  then here.maxTaskPar
+                                  else dataParTasksPerLocale
+                             else desiredProcessorCount;
+  const arrayDomain = array.domain;
+  const arraySize:int = array.size;
+  /*
+    The opposite of fillKryptonite, this fill supports the guided iterator's
+    behavior by ensuring each work unit contains an equal amount of work.
+  */
+  const lengthOverProcessorCount:real = (arraySize:real
+                                         / processorCount:real);
+  const commonRatio:real = (1.0 - (1.0 / processorCount:real));
+
+  forall i in arrayDomain do
+  {
+    array[i] = (lengthOverProcessorCount * (commonRatio ** (arraySize - i)));
   }
   normalizeSum(array);
 }
@@ -289,8 +278,8 @@ proc fillNormallyDistributed(array)
   /*
     https://en.wikipedia.org/wiki/Normal_distribution#Alternative_parameterizations
 
-      sigma is standard deviation (which should be "mean by three").
-      precision is 1/sigma.
+    sigma is standard deviation (which should be "mean by three").
+    precision is 1/sigma.
   */
   const mean:real = 0.5;
   const precision:int = 6;
@@ -319,7 +308,7 @@ proc fillUniformlyRandom(array)
   Helpers.
 */
 proc normalizeSum(array, desiredSum=0)
-{
+{ // Make an array's sum equal its size by scaling all values appropriately.
   const arrayDomain = array.domain;
   const targetSum:int = if desiredSum == 0
                         then array.size
@@ -346,12 +335,11 @@ iter primeSieve(n:int)
   }
 }
 
-/*
-  Returns a pi approximation using Fabrice Bellard's formula for k iterations.
-  https://en.wikipedia.org/wiki/Approximations_of_%CF%80#Efficient_methods
-*/
 proc piApproximate(k:int):real
-{
+{ /*
+    Return a pi approximation using Fabrice Bellard's formula for k iterations.
+    https://en.wikipedia.org/wiki/Approximations_of_%CF%80#Efficient_methods
+  */
   var current:real = 0.0;
   var fourN,tenN:real;
   for n in 0..k do
@@ -369,13 +357,12 @@ proc piApproximate(k:int):real
   return current/64.0;
 }
 
-/*
-  Returns a pi approximation to n iterations using Bailey, Borwein, and
-  Plouffe's formula.
-  https://en.wikipedia.org/wiki/Approximations_of_%CF%80#Efficient_methods
-*/
 proc piApproximateBBP(n:int):real
-{
+{ /*
+    Returns a pi approximation to n iterations using Bailey, Borwein, and
+    Plouffe's formula.
+    https://en.wikipedia.org/wiki/Approximations_of_%CF%80#Efficient_methods
+  */
   var current:real = 0.0;
   var eightK:real;
   for k in 0..n do
@@ -390,14 +377,14 @@ proc piApproximateBBP(n:int):real
 }
 
 /*
-  Integer factorization. Transliterated from Python version on Wikipedia.
+  The function below is ransliterated from the Python version on Wikipedia.
   (Python version commented on right for reference.)
 
   Source:
   https://en.wikipedia.org/wiki/Trial_division
 */
 proc trialDivision(n:int):domain(int)  // def trialDivision(n):
-{ // Returns an associative domain of  // """Return a list of the prime
+{ // Return an associative domain of   // """Return a list of the prime
   // n's prime factors.                //    factors for a natural
                                        //    number."""
   if n < 2 then                        // if n < 2:
@@ -419,7 +406,7 @@ proc trialDivision(n:int):domain(int)  // def trialDivision(n):
 }
 
 proc properDivisors(n:int):domain(int)
-{
+{ // Return an associative domain of ``n``'s proper divisors.
   var result:domain(int)={1};
   var quotient:real;
   for i in 2..n/2 do
@@ -437,7 +424,10 @@ proc divisors(n:int):domain(int)
 }
 
 proc isPerfect(n:int):bool
-{
+{ /*
+    Return whether ``n`` is a perfect number (i.e. equals its proper divisor
+    sum).
+  */
   var properDivisorsN:domain(int)=properDivisors(n);
   var sum:int;
   for p in properDivisorsN do sum += p;
@@ -445,7 +435,7 @@ proc isPerfect(n:int):bool
 }
 
 proc max(array:[]):real
-{
+{ // Return the maximum value in ``array``.
   var max:real;
   assert(array.size > 0, "max: array must have positive-size domain");
   const arrayLocalSubdomain = array.localSubdomain();
@@ -460,7 +450,7 @@ proc max(array:[]):real
 }
 
 proc writeArrayStatistics(array:[]real)
-{ // Write the given array's min, max, mean, standard deviation, and histogram.
+{ // Write ``array``'s min, max, mean, sum, standard deviation, and histogram.
   var max,mean,min,squaredDeviationSum,stdDev,sum:real;
   const arraySize:int = array.size;
   if arraySize == 0
