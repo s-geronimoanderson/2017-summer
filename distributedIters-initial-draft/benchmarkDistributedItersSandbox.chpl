@@ -35,25 +35,28 @@ config const mode:iterator = iterator.guided;
   Test cases for array values:
 
   constant -- All array elements have the same constant value.
-  linear -- Array values follow some linear function (default y = x).
   normal -- Normally distributed, scaled to [0,1].
   outlier -- Most values close to average with handful of outliers.
+    (Alias for outliercubic.)
+  outliercubic -- Cubic function for outliers (see outlier).
+  outlierlogistic -- Logistic function for outliers (see outlier). Slightly
+    more artificial shape compared to outliercubic.
+  rampup -- Values follow a linearly increasing function.
+  rampdown -- Values follow a linearly decreasing function.
   uniform -- Uniformly random.
 */
 enum testCase
 {
   constant,
   normal,
-  identity,
   outlier,
+  outliercubic,
+  outlierlogistic,
   rampdown,
   rampup,
   uniform
 };
 config const test:testCase = testCase.uniform;
-
-// Use this value for the constant test case.
-config const constant:real = 0.4;
 
 /*
   If coordinated is true, then the guided iterator dedicates one locale to
@@ -61,7 +64,7 @@ config const constant:real = 0.4;
 */
 config const coordinated:bool = false;
 
-// n determines the iteration count and work per iteration.
+// n determines the iteration count and total work per iteration.
 config const n:int = 1000;
 
 const controlRange:range = 0..#n;
@@ -74,8 +77,9 @@ select mode
   when iterator.guided do testGuidedWorkload();
 }
 
-// Testing procedures.
-
+/*
+  Testing procedures.
+*/
 proc testGuidedWorkload()
 {
   if !timing
@@ -89,10 +93,11 @@ proc testGuidedWorkload()
 
   select test
   {
-    when testCase.constant do fillConstant(array, constant);
-    when testCase.identity do fillIdentity(array);
+    when testCase.constant do fillConstant(array);
     when testCase.normal do fillNormallyDistributed(array);
     when testCase.outlier do fillCubicOutliers(array);
+    when testCase.outliercubic do fillCubicOutliers(array);
+    when testCase.outlierlogistic do fillLogisticOutliers(array);
     when testCase.rampdown do fillRampDown(array);
     when testCase.rampup do fillRampUp(array);
     when testCase.uniform do fillUniformlyRandom(array);
@@ -146,10 +151,11 @@ proc testControlWorkload()
 
   select test
   {
-    when testCase.constant do fillConstant(array, constant);
+    when testCase.constant do fillConstant(array);
     when testCase.normal do fillNormallyDistributed(array);
-    when testCase.identity do fillIdentity(array);
     when testCase.outlier do fillCubicOutliers(array);
+    when testCase.outliercubic do fillCubicOutliers(array);
+    when testCase.outlierlogistic do fillLogisticOutliers(array);
     when testCase.rampdown do fillRampDown(array);
     when testCase.rampup do fillRampUp(array);
     when testCase.uniform do fillUniformlyRandom(array);
@@ -191,24 +197,7 @@ proc testControlWorkload()
 /*
   Array fills.
 */
-
-proc fillArrayByElement(array, f)
-{
-  const arrayDomain = array.domain;
-  forall i in arrayDomain do
-  {
-    const x = array[i];
-    array[i] = f(x);
-  }
-}
-
-proc fillArrayByIndex(array, f)
-{
-  const arrayDomain = array.domain;
-  forall i in arrayDomain do array[i] = f(i);
-}
-
-proc fillConstant(array, constant)
+proc fillConstant(array, constant=1)
 {
   const arrayDomain = array.domain;
   forall i in arrayDomain do array[i] = constant;
@@ -218,40 +207,11 @@ proc fillLinear(array, slope, yIntercept)
 {
   const arrayDomain = array.domain;
   forall i in arrayDomain do array[i] = ((slope * i) + yIntercept);
+  normalizeSum(array);
 }
 
-proc fillIdentity(array) { fillLinear(array, (1.0/n:real), 0); }
-proc fillRampDown(array) { fillLinear(array, (-1.0/n:real), 1); }
+proc fillRampDown(array) { fillLinear(array, (-1.0/n:real), 1.0); }
 proc fillRampUp(array) { fillLinear(array, (1.0/n:real), 0); }
-proc fillUniformlyRandom(array) { fillRandom(array, globalRandomSeed); }
-
-proc fillLogisticOutliers(array)
-{
-  const arrayDomain = array.domain;
-  fillRandom(array, globalRandomSeed);
-  /*
-    This function creates extreme outliers using the logistic function:
-    https://en.wikipedia.org/wiki/Logistic_function
-
-    We use x_0 = 0.8 as the sigmoid's midpoint, L = 0.625 as the curve's
-    maximum value, and k = 135.805 as the curve's slope, then translate it by
-    0.375. This means the function
-
-      0.625/(1 + e^(-135.805 * (x - 0.8))) + 0.375
-
-    translates x values in the interval [0,1] such that ~80% are 0.375, ~20%
-    are close to 1, and there is a steep value transition from 0.375 to 1.
-  */
-  const x_0:real = 0.8;
-  const L:real = 0.625;
-  const k:real = 135.805;
-  const y_0:real = 0.375;
-  forall i in arrayDomain do
-  {
-    const x:real = (0.9 * array[i]);
-    array[i] = ((0.625 / (1 + (Math.e ** (-135.805 * (x - 0.8))))) + 0.375);
-  }
-}
 
 proc fillCubicOutliers(array)
 {
@@ -290,6 +250,36 @@ proc fillCubicOutliers(array)
                               + a_0);
     array[i] = (0.8 * translatedX);
   }
+  normalizeSum(array);
+}
+
+proc fillLogisticOutliers(array)
+{
+  const arrayDomain = array.domain;
+  fillRandom(array, globalRandomSeed);
+  /*
+    This function creates extreme outliers using the logistic function:
+    https://en.wikipedia.org/wiki/Logistic_function
+
+    We use x_0 = 0.8 as the sigmoid's midpoint, L = 0.625 as the curve's
+    maximum value, and k = 135.805 as the curve's slope, then translate it by
+    0.375. This means the function
+
+      0.625/(1 + e^(-135.805 * (x - 0.8))) + 0.375
+
+    translates x values in the interval [0,1] such that ~80% are 0.375, ~20%
+    are close to 1, and there is a steep value transition from 0.375 to 1.
+  */
+  const x_0:real = 0.8;
+  const L:real = 0.625;
+  const k:real = 135.805;
+  const y_0:real = 0.375;
+  forall i in arrayDomain do
+  {
+    const x:real = (0.9 * array[i]);
+    array[i] = ((0.625 / (1 + (Math.e ** (-135.805 * (x - 0.8))))) + 0.375);
+  }
+  normalizeSum(array);
 }
 
 proc fillNormallyDistributed(array)
@@ -316,11 +306,30 @@ proc fillNormallyDistributed(array)
     array[i] = translatedX;
 
   }
-  // Scale to have values between 0 and 1.
-  array /= max(array);
+  normalizeSum(array);
 }
 
-// Helpers.
+proc fillUniformlyRandom(array)
+{
+  fillRandom(array, globalRandomSeed);
+  normalizeSum(array);
+}
+
+/*
+  Helpers.
+*/
+proc normalizeSum(array, desiredSum=0)
+{
+  const arrayDomain = array.domain;
+  const targetSum:int = if desiredSum == 0
+                        then array.size
+                        else desiredSum;
+  var sum:real;
+
+  for i in arrayDomain do sum += array[i];
+  const scalingFactor:real = (targetSum / sum);
+  array *= scalingFactor;
+}
 
 iter primeSieve(n:int)
 { // Sieve of Eratosthenes: Yield all primes up to n.
@@ -481,7 +490,8 @@ proc writeArrayStatistics(array:[]real)
     writeln("writeArrayStatistics: min = ", min,
             ", max = ", max,
             ", mean = ", mean,
-            ", stdDev = ", stdDev);
+            ", stdDev = ", stdDev,
+            ", sum = ", sum);
 
     // Histogram. Bin by stdDev.
     var bins:[0..7]int;
