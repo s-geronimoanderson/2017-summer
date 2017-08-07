@@ -92,7 +92,7 @@ proc testGuidedWorkload()
     when testCase.constant do fillConstant(array, constant);
     when testCase.identity do fillIdentity(array);
     when testCase.normal do fillNormallyDistributed(array);
-    when testCase.outlier do fillLogisticOutliers(array);
+    when testCase.outlier do fillCubicOutliers(array);
     when testCase.rampdown do fillRampDown(array);
     when testCase.rampup do fillRampUp(array);
     when testCase.uniform do fillUniformlyRandom(array);
@@ -149,7 +149,7 @@ proc testControlWorkload()
     when testCase.constant do fillConstant(array, constant);
     when testCase.normal do fillNormallyDistributed(array);
     when testCase.identity do fillIdentity(array);
-    when testCase.outlier do fillLogisticOutliers(array);
+    when testCase.outlier do fillCubicOutliers(array);
     when testCase.rampdown do fillRampDown(array);
     when testCase.rampup do fillRampUp(array);
     when testCase.uniform do fillUniformlyRandom(array);
@@ -288,7 +288,7 @@ proc fillCubicOutliers(array)
                               + (a_2 * xSquared)
                               + (a_1 * x)
                               + a_0);
-    array[i] = translatedX;
+    array[i] = (0.8 * translatedX);
   }
 }
 
