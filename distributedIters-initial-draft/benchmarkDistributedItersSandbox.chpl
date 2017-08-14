@@ -105,7 +105,7 @@ proc testGuidedWorkload()
   if debug then writeArrayStatistics(array);
 
   timer.start();
-  forall i in guidedDistributed(controlRange, coordinated=coordinated) do
+  forall i in distributedGuided(controlRange, coordinated=coordinated) do
   {
     const k:real = (array[i] * n):int;
 
