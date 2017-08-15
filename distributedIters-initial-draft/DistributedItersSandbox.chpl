@@ -33,6 +33,9 @@ use DynamicIters,
 config param debugDistributedIters:bool = false;
 config param timeDistributedIters:bool = false;
 
+// Toggle writing system information.
+config const infoDistributedIters:bool = false;
+
 // Distributed Guided Iterator.
 /*
   :arg c: The range (or domain) to iterate over. The range (domain) size must
@@ -57,9 +60,9 @@ config param timeDistributedIters:bool = false;
     it from receiving work. (If true and multi-locale.)
   :type coordinated: `bool`
 
-  :arg desiredLocales: An array of locales over which to distribute the work.
-    Defaults to Locales.
-  :type desiredLocales: `[]locale`
+  :arg workerLocales: An array of locales over which to distribute the work.
+    Defaults to Locales (all available locales).
+  :type workerLocales: `[]locale`
 
   :yields: Indices in the range ``c``.
 
@@ -82,12 +85,14 @@ iter distributedGuided(c,
                        parDim:int=1,
                        minChunkSize:int=1,
                        coordinated:bool=false,
-                       desiredLocales=Locales)
+                       workerLocales=Locales)
 {
-  assert((isDomain(c) || isRange(c)), "Must use a valid domain or range");
+  assert((isDomain(c) || isRange(c)), ("DistributedIters: Serial guided "
+                                       + "iterator: must use a valid domain "
+                                       + "or range"));
 
   if debugDistributedIters
-  then writeln("Serial guided iterator, working with ",
+  then writeln("DistributedIters: Serial guided iterator, working with ",
                if isDomain(c) then "domain " else "range ", c);
 
   for i in c do yield i;
@@ -101,16 +106,21 @@ iter distributedGuided(param tag:iterKind,
                        parDim:int=1,
                        minChunkSize:int=1,
                        coordinated:bool=false,
-                       desiredLocales=Locales)
+                       workerLocales=Locales)
 where tag == iterKind.leader
 {
-  assert((isDomain(c) || isRange(c)), "Must use a valid domain or range");
+  assert((isDomain(c) || isRange(c)), ("DistributedIters: Guided iterator "
+                                       + "(leader): must use a valid domain "
+                                       + "or range"));
 
   if isDomain(c) then
   {
-    assert(c.rank > 0, "Must use a valid domain");
-    assert(parDim > 0, "parDim must be a positive integer");
-    assert(parDim <= c.rank, "parDim must be a dimension of the domain");
+    assert(c.rank > 0, ("DistributedIters: Guided iterator (leader): Must "
+                        + "use a valid domain"));
+    assert(parDim > 0, ("DistributedIters: Guided iterator (leader): parDim "
+                        + "must be a positive integer"));
+    assert(parDim <= c.rank, ("DistributedIters: Guided iterator (leader): "
+                              + "parDim must be a dimension of the domain"));
 
     var parDimDim = c.dim(parDim);
 
@@ -120,7 +130,7 @@ where tag == iterKind.leader
                                parDim=1,
                                minChunkSize=minChunkSize,
                                coordinated=coordinated,
-                               desiredLocales=desiredLocales)
+                               workerLocales=workerLocales)
     {
       // Set the new range based on the tuple the guided 1-D iterator yields.
       var newRange = t(1);
@@ -140,9 +150,11 @@ where tag == iterKind.leader
   }
   else // c is a range.
   {
+
     const iterCount = c.length;
 
-    if iterCount == 0 then halt("The range is empty");
+    if iterCount == 0 then halt("DistributedIters: Guided iterator (leader): ",
+                                "the range is empty");
 
     type cType = c.type;
     const denseRange:cType = densify(c,c);
@@ -152,25 +164,39 @@ where tag == iterKind.leader
     then
     {
       if debugDistributedIters
-      then writeln("Distributed guided iterator: serial execution due to ",
-                   "insufficient work or compute resources");
+      then writeln("DistributedIters: Guided iterator (leader): serial ",
+                   "execution due to insufficient work or compute resources");
       yield (denseRange,);
     }
     else
     {
-      const numDesiredLocales = desiredLocales.size;
+      const numWorkerLocales = workerLocales.size;
       const denseRangeHigh:int = denseRange.high;
       const masterLocale = here.locale;
-      const nLocales = if coordinated && numDesiredLocales > 1
-                       then (numDesiredLocales - 1)
-                       else numDesiredLocales;
+      const numActualWorkers = if coordinated && numWorkerLocales > 1
+                               then (numWorkerLocales - 1)
+                               else numWorkerLocales;
       var meitneriumIndex:atomic int;
+
+      if infoDistributedIters then
+      {
+        const workerLocaleIds = [e in workerLocales] e.id:string;
+        writeln("[guidedDistributed]");
+        writeln("coordinated = ", coordinated);
+        writeln("numLocales = ", numLocales);
+        writeln("numWorkerLocales = ", numWorkerLocales);
+        writeln("numActualWorkers = ", numActualWorkers);
+        writeln("masterLocale.id = ", masterLocale.id);
+        writeln("workerLocaleIds = [ ",
+                ", ".join(workerLocaleIds.sorted()),
+                " ]");
+      }
 
       var localeTimes:[0..#numLocales]real = 0.0; // #numLocales is the safest.
       var totalTime:Timer;
       if timeDistributedIters then totalTime.start();
 
-      coforall L in desiredLocales
+      coforall L in workerLocales
       with (ref meitneriumIndex, ref localeTimes) do
       on L do
       {
@@ -184,7 +210,7 @@ where tag == iterKind.leader
 
           var localeStage:int = meitneriumIndex.fetchAdd(1);
           var localeRange:cType = guidedSubrange(denseRange,
-                                                 nLocales,
+                                                 numActualWorkers,
                                                  localeStage);
           while localeRange.high <= denseRangeHigh do
           {
@@ -197,8 +223,8 @@ where tag == iterKind.leader
                                                 localeRange);
               if debugDistributedIters then
               {
-                writeln("Distributed guided iterator (leader): ", here.locale,
-                        ": yielding ", unDensify(taskRange,c),
+                writeln("DistributedIters: Guided iterator (leader): ",
+                        here.locale, ": yielding ", unDensify(taskRange,c),
                         " (", taskRange.length,
                         "/", localeRange.length,
                         " locale-owned of ", iterCount,
@@ -209,7 +235,9 @@ where tag == iterKind.leader
             }
 
             localeStage = meitneriumIndex.fetchAdd(1);
-            localeRange = guidedSubrange(denseRange, nLocales, localeStage);
+            localeRange = guidedSubrange(denseRange,
+                                         numActualWorkers,
+                                         localeStage);
           }
 
           if timeDistributedIters then
@@ -237,11 +265,13 @@ iter distributedGuided(param tag:iterKind,
                        parDim:int=1,
                        minChunkSize:int,
                        coordinated:bool,
-                       desiredLocales=Locales,
+                       workerLocales=Locales,
                        followThis)
 where tag == iterKind.follower
 {
-  assert((isDomain(c) || isRange(c)), "Must use a valid domain or range");
+  assert((isDomain(c) || isRange(c)), ("DistributedIters: Guided iterator "
+                                       + "(follower): Must use a valid "
+                                       + "domain or range"));
 
   const current = if isDomain(c)
                   then c._value.these(tag=iterKind.follower,
@@ -249,8 +279,8 @@ where tag == iterKind.follower
                   else unDensify(followThis(1), c);
 
   if debugDistributedIters
-  then writeln("Distributed guided iterator (follower): ", here.locale, ": ",
-               "received ",
+  then writeln("DistributedIters: Guided iterator (follower): ", here.locale,
+               ": received ",
                if isDomain(c) then "domain " else "range ",
                followThis, " (", current.size,
                "/", c.size, "); shifting to ", current);
@@ -292,7 +322,8 @@ private proc guidedSubrange(c:range(?),
                             stage:int,
                             minChunkSize:int=1)
 {
-  assert(workerCount > 0, "'workerCount' must be positive");
+  assert(workerCount > 0, ("DistributedIters: guidedSubrange: "
+                           + "'workerCount' must be positive"));
   const cLength = c.length;
   var low:int = c.low;
   var chunkSize:int = (cLength / workerCount);
@@ -376,7 +407,7 @@ iter distributedGuided(c:domain,
                        parDim:int=1,
                        minChunkSize:int=1,
                        coordinated:bool=false,
-                       desiredLocales=Locales)
+                       workerLocales=Locales)
 {
   if debugDistributedIters
   then writeln("Serial guided iterator, working with domain ", c);
@@ -390,7 +421,7 @@ iter distributedGuided(c:range(?),
                        parDim:int=1,
                        minChunkSize:int=1,
                        coordinated:bool=false,
-                       desiredLocales=Locales)
+                       workerLocales=Locales)
 {
   if debugDistributedIters
   then writeln("Serial guided iterator, working with range ", c);
@@ -406,7 +437,7 @@ iter distributedGuided(param tag:iterKind,
                        parDim:int=1,
                        minChunkSize:int=1,
                        coordinated:bool=false,
-                       desiredLocales=Locales)
+                       workerLocales=Locales)
 where tag == iterKind.leader
 {
 
@@ -422,7 +453,7 @@ where tag == iterKind.leader
                              parDim=1,
                              minChunkSize=minChunkSize,
                              coordinated=coordinated,
-                             desiredLocales=desiredLocales)
+                             workerLocales=workerLocales)
   {
     // Set the new range based on the tuple the guided 1-D iterator yields.
     var newRange = t(1);
@@ -449,7 +480,7 @@ iter distributedGuided(param tag:iterKind,
                        parDim:int=1,
                        minChunkSize:int=1,
                        coordinated:bool=false,
-                       desiredLocales=Locales)
+                       workerLocales=Locales)
 where tag == iterKind.leader
 {
   const iterCount = c.length;
@@ -470,19 +501,19 @@ where tag == iterKind.leader
   }
   else
   {
-    const numDesiredLocales = desiredLocales.size;
+    const numWorkerLocales = workerLocales.size;
     const denseRangeHigh:int = denseRange.high;
     const masterLocale = here.locale;
-    const nLocales = if coordinated && numDesiredLocales > 1
-                     then (numDesiredLocales - 1)
-                     else numDesiredLocales;
+    const nLocales = if coordinated && numWorkerLocales > 1
+                     then (numWorkerLocales - 1)
+                     else numWorkerLocales;
     var meitneriumIndex:atomic int;
 
     var localeTimes:[0..#numLocales]real = 0.0; // #numLocales is the safest.
     var totalTime:Timer;
     if timeDistributedIters then totalTime.start();
 
-    coforall L in desiredLocales
+    coforall L in workerLocales
     with (ref meitneriumIndex, ref localeTimes) do
     on L do
     {
@@ -547,7 +578,7 @@ iter distributedGuided(param tag:iterKind,
                        parDim:int=1,
                        minChunkSize:int,
                        coordinated:bool,
-                       desiredLocales=Locales,
+                       workerLocales=Locales,
                        followThis)
 where tag == iterKind.follower
 {
@@ -569,7 +600,7 @@ iter distributedGuided(param tag:iterKind,
                        parDim:int=1,
                        minChunkSize:int,
                        coordinated:bool,
-                       desiredLocales=Locales,
+                       workerLocales=Locales,
                        followThis)
 where tag == iterKind.follower
 {
@@ -840,7 +871,7 @@ iter distributedGuided(c,
                        parDim:int=1,
                        minChunkSize:int=1,
                        coordinated:bool=false,
-                       desiredLocales=Locales)
+                       workerLocales=Locales)
 {
   // Ensure ``c`` is an array, domain, or range.
   const cValidatedType:ValidatedType = validateType(c);
