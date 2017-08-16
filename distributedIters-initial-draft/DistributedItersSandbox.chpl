@@ -178,6 +178,9 @@ where tag == iterKind.leader
                                      || Locale != masterLocale
                                   then Locale;
       const numActualWorkerLocales = actualWorkerLocales.size;
+      assert(numActualWorkerLocales > 0,
+             ("DistributedIters: Guided iterator (leader): insufficient "
+              + "compute resources"));
       var meitneriumIndex:atomic int;
 
       if infoDistributedIters then
