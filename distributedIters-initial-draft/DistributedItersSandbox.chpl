@@ -177,7 +177,7 @@ where tag == iterKind.leader
                                      || !coordinated
                                      || Locale != masterLocale
                                   then Locale;
-      const numActualWorkers = actualWorkerLocales.size;
+      const numActualWorkerLocales = actualWorkerLocales.size;
       var meitneriumIndex:atomic int;
 
       if infoDistributedIters then
@@ -188,7 +188,7 @@ where tag == iterKind.leader
         writeln("  coordinated = ", coordinated);
         writeln("  numLocales = ", numLocales);
         writeln("  numWorkerLocales = ", numWorkerLocales);
-        writeln("  numActualWorkers = ", numActualWorkers);
+        writeln("  numActualWorkerLocales = ", numActualWorkerLocales);
         writeln("  masterLocale.id = ", masterLocale.id);
         writeln("  actualWorkerLocaleIds = [ ",
                 ", ".join(actualWorkerLocaleIdsSorted),
@@ -208,7 +208,7 @@ where tag == iterKind.leader
 
         var localeStage:int = meitneriumIndex.fetchAdd(1);
         var localeRange:cType = guidedSubrange(denseRange,
-                                               numActualWorkers,
+                                               numActualWorkerLocales,
                                                localeStage);
         while localeRange.high <= denseRangeHigh do
         {
@@ -234,7 +234,7 @@ where tag == iterKind.leader
 
           localeStage = meitneriumIndex.fetchAdd(1);
           localeRange = guidedSubrange(denseRange,
-                                       numActualWorkers,
+                                       numActualWorkerLocales,
                                        localeStage);
         }
 
