@@ -172,15 +172,21 @@ where tag == iterKind.leader
       const numWorkerLocales = workerLocales.size;
       const denseRangeHigh:int = denseRange.high;
       const masterLocale = here.locale;
-      const actualWorkerLocales =
+
+      var actualWorkerLocales =
         [Locale in workerLocales] if numLocales == 1
                                      || !coordinated
                                      || Locale != masterLocale
                                   then Locale;
-      const numActualWorkerLocales = actualWorkerLocales.size;
-      assert(numActualWorkerLocales > 0,
-             ("DistributedIters: Guided iterator (leader): insufficient "
-              + "compute resources"));
+      var numActualWorkerLocales = actualWorkerLocales.size;
+      if numActualWorkerLocales < 1 then
+      {
+        writeln("DistributedIters: Guided iterator (leader): using ",
+                masterLocale, " only due to insufficient worker locales");
+        actualWorkerLocales = [masterLocale];
+        numActualWorkerLocales = 1;
+      }
+
       var meitneriumIndex:atomic int;
 
       if infoDistributedIters then
