@@ -183,7 +183,8 @@ where tag == iterKind.leader
       {
         writeln("DistributedIters: Guided iterator (leader): using ",
                 masterLocale, " only due to insufficient worker locales");
-        actualWorkerLocales = [masterLocale];
+        const contingencyWorkerLocales = [masterLocale];
+        actualWorkerLocales = contingencyWorkerLocales;
         numActualWorkerLocales = 1;
       }
 
