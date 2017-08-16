@@ -173,19 +173,26 @@ where tag == iterKind.leader
       const denseRangeHigh:int = denseRange.high;
       const masterLocale = here.locale;
 
-      var actualWorkerLocales =
-        [Locale in workerLocales] if numLocales == 1
-                                     || !coordinated
-                                     || Locale != masterLocale
-                                  then Locale;
-      var numActualWorkerLocales = actualWorkerLocales.size;
-      if numActualWorkerLocales < 1 then
+      var actualWorkerLocales = [masterLocale];
+      var numActualWorkerLocales:int;
+
+      if numWorkerLocales < 1
+         || coordinated && numWorkerLocales == 1
+      then
       {
         writeln("DistributedIters: Guided iterator (leader): using ",
-                masterLocale, " only due to insufficient worker locales");
-        const contingencyWorkerLocales = [masterLocale];
-        actualWorkerLocales = contingencyWorkerLocales;
+                    masterLocale, " only due to insufficient worker locales");
         numActualWorkerLocales = 1;
+      }
+      else
+      {
+        actualWorkerLocales =
+          [Locale in workerLocales] if numLocales == 1
+                                       || !coordinated
+                                       || Locale != masterLocale
+                                       || numWorkerLocales == 1
+                                    then Locale;
+        numActualWorkerLocales = actualWorkerLocales.size;
       }
 
       var meitneriumIndex:atomic int;
