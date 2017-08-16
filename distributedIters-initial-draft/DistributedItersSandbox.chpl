@@ -150,7 +150,6 @@ where tag == iterKind.leader
   }
   else // c is a range.
   {
-
     const iterCount = c.length;
 
     if iterCount == 0 then halt("DistributedIters: Guided iterator (leader): ",
@@ -181,13 +180,13 @@ where tag == iterKind.leader
       if infoDistributedIters then
       {
         const workerLocaleIds = [e in workerLocales] e.id:string;
-        writeln("[guidedDistributed]");
-        writeln("coordinated = ", coordinated);
-        writeln("numLocales = ", numLocales);
-        writeln("numWorkerLocales = ", numWorkerLocales);
-        writeln("numActualWorkers = ", numActualWorkers);
-        writeln("masterLocale.id = ", masterLocale.id);
-        writeln("workerLocaleIds = [ ",
+        writeln("DistributedIters: guidedDistributed:");
+        writeln("  coordinated = ", coordinated);
+        writeln("  numLocales = ", numLocales);
+        writeln("  numWorkerLocales = ", numWorkerLocales);
+        writeln("  numActualWorkers = ", numActualWorkers);
+        writeln("  masterLocale.id = ", masterLocale.id);
+        writeln("  workerLocaleIds = [ ",
                 ", ".join(workerLocaleIds.sorted()),
                 " ]");
       }
