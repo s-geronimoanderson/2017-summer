@@ -25,8 +25,17 @@ const controlDomainStrided = (controlDomain by 2);
 /*
   Default tests.
 */
+writeln("Default tests, serial:");
 testRangesAndDomainsSerial();
+writeln();
+
+writeln("Default tests, zippered:");
 testRangesAndDomainsZippered();
+writeln();
+
+writeln("Default tests, coordinated mode:");
+testRangesAndDomainsZippered(coordinated=true);
+writeln();
 
 /*
   Specific work locales.
@@ -36,12 +45,22 @@ if numLocales > 1 then
   const evenLocales = [Locale in Locales] if (Locale.id % 2 == 0) then Locale;
   const oddLocales = [Locale in Locales] if (Locale.id % 2 != 0) then Locale;
 
+  writeln("Even locales only:");
   testRangesAndDomainsZippered(workerLocales=evenLocales);
+  writeln();
+
+  writeln("Odd locales only:");
   testRangesAndDomainsZippered(workerLocales=oddLocales);
+  writeln();
 
   // Coordinated mode.
+  writeln("Even locales only, coordinated mode:");
   testRangesAndDomainsZippered(workerLocales=evenLocales, coordinated=true);
+  writeln();
+
+  writeln("Odd locales only, coordinated mode:");
   testRangesAndDomainsZippered(workerLocales=oddLocales, coordinated=true);
+  writeln();
 }
 
 /*
