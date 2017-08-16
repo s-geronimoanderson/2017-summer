@@ -172,24 +172,26 @@ where tag == iterKind.leader
       const numWorkerLocales = workerLocales.size;
       const denseRangeHigh:int = denseRange.high;
       const masterLocale = here.locale;
-      const numActualWorkers = if coordinated && numWorkerLocales > 1
-                               then (numWorkerLocales - 1)
-                               else numWorkerLocales;
+      const actualWorkerLocales =
+        [Locale in workerLocales] if numLocales == 1
+                                     || !coordinated
+                                     || Locale != masterLocale
+                                  then Locale;
+      const numActualWorkers = actualWorkerLocales.size;
       var meitneriumIndex:atomic int;
 
       if infoDistributedIters then
       {
-        const workerLocaleIds = [e in workerLocales] e.id:string;
-        const workerLocaleIdsSorted = workerLocaleIds.sorted();
-        const formattedWorkerLocaleIds = ", ".join(workerLocaleIdsSorted);
+        const actualWorkerLocaleIds = [e in actualWorkerLocales] e.id:string;
+        const actualWorkerLocaleIdsSorted = actualWorkerLocaleIds.sorted();
         writeln("DistributedIters: guidedDistributed:");
         writeln("  coordinated = ", coordinated);
         writeln("  numLocales = ", numLocales);
         writeln("  numWorkerLocales = ", numWorkerLocales);
         writeln("  numActualWorkers = ", numActualWorkers);
         writeln("  masterLocale.id = ", masterLocale.id);
-        writeln("  workerLocaleIds = [ ",
-                ", ".join(workerLocaleIdsSorted),
+        writeln("  actualWorkerLocaleIds = [ ",
+                ", ".join(actualWorkerLocaleIdsSorted),
                 " ]");
       }
 
@@ -197,55 +199,49 @@ where tag == iterKind.leader
       var totalTime:Timer;
       if timeDistributedIters then totalTime.start();
 
-      coforall L in workerLocales
+      coforall L in actualWorkerLocales
       with (ref meitneriumIndex, ref localeTimes) do
       on L do
       {
-        if numLocales == 1
-           || !coordinated
-           || L != masterLocale // Necessarily, coordinated == true
-        then
+        var localeTime:Timer;
+        if timeDistributedIters then localeTime.start();
+
+        var localeStage:int = meitneriumIndex.fetchAdd(1);
+        var localeRange:cType = guidedSubrange(denseRange,
+                                               numActualWorkers,
+                                               localeStage);
+        while localeRange.high <= denseRangeHigh do
         {
-          var localeTime:Timer;
-          if timeDistributedIters then localeTime.start();
-
-          var localeStage:int = meitneriumIndex.fetchAdd(1);
-          var localeRange:cType = guidedSubrange(denseRange,
-                                                 numActualWorkers,
-                                                 localeStage);
-          while localeRange.high <= denseRangeHigh do
+          const denseLocaleRange:cType = densify(localeRange, localeRange);
+          for denseTaskRangeTuple in DynamicIters.guided(tag=iterKind.leader,
+                                                         localeRange,
+                                                         numTasks) do
           {
-            const denseLocaleRange:cType = densify(localeRange, localeRange);
-            for denseTaskRangeTuple in DynamicIters.guided(tag=iterKind.leader,
-                                                           localeRange,
-                                                           numTasks) do
+            const taskRange:cType = unDensify(denseTaskRangeTuple(1),
+                                              localeRange);
+            if debugDistributedIters then
             {
-              const taskRange:cType = unDensify(denseTaskRangeTuple(1),
-                                                localeRange);
-              if debugDistributedIters then
-              {
-                writeln("DistributedIters: Guided iterator (leader): ",
-                        here.locale, ": yielding ", unDensify(taskRange,c),
-                        " (", taskRange.length,
-                        "/", localeRange.length,
-                        " locale-owned of ", iterCount,
-                        " total) as ", taskRange);
-              }
-
-              yield (taskRange,);
+              writeln("DistributedIters: Guided iterator (leader): ",
+                      here.locale, ": yielding ", unDensify(taskRange,c),
+                      " (", taskRange.length,
+                      "/", localeRange.length,
+                      " locale-owned of ", iterCount,
+                      " total) as ", taskRange);
             }
 
-            localeStage = meitneriumIndex.fetchAdd(1);
-            localeRange = guidedSubrange(denseRange,
-                                         numActualWorkers,
-                                         localeStage);
+            yield (taskRange,);
           }
 
-          if timeDistributedIters then
-          {
-            localeTime.stop();
-            localeTimes[here.id] = localeTime.elapsed();
-          }
+          localeStage = meitneriumIndex.fetchAdd(1);
+          localeRange = guidedSubrange(denseRange,
+                                       numActualWorkers,
+                                       localeStage);
+        }
+
+        if timeDistributedIters then
+        {
+          localeTime.stop();
+          localeTimes[here.id] = localeTime.elapsed();
         }
       }
 
