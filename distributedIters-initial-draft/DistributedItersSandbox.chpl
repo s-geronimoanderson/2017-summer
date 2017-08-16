@@ -180,6 +180,8 @@ where tag == iterKind.leader
       if infoDistributedIters then
       {
         const workerLocaleIds = [e in workerLocales] e.id:string;
+        const workerLocaleIdsSorted = workerLocaleIds.sorted();
+        const formattedWorkerLocaleIds = ", ".join(workerLocaleIdsSorted);
         writeln("DistributedIters: guidedDistributed:");
         writeln("  coordinated = ", coordinated);
         writeln("  numLocales = ", numLocales);
@@ -187,7 +189,7 @@ where tag == iterKind.leader
         writeln("  numActualWorkers = ", numActualWorkers);
         writeln("  masterLocale.id = ", masterLocale.id);
         writeln("  workerLocaleIds = [ ",
-                ", ".join(workerLocaleIds.sorted()),
+                ", ".join(workerLocaleIdsSorted),
                 " ]");
       }
 
