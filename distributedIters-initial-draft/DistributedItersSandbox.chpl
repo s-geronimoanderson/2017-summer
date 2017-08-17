@@ -93,8 +93,7 @@ iter distributedGuided(c,
 
   if debugDistributedIters
   then writeln("DistributedIters: Serial guided iterator, working with ",
-               if isDomain(c) then "domain " else "range ", c);
-
+               (if isDomain(c) then "domain " else "range "), c);
   for i in c do yield i;
 }
 
@@ -112,7 +111,6 @@ where tag == iterKind.leader
   assert((isDomain(c) || isRange(c)), ("DistributedIters: Guided iterator "
                                        + "(leader): must use a valid domain "
                                        + "or range"));
-
   if isDomain(c) then
   {
     assert(c.rank > 0, ("DistributedIters: Guided iterator (leader): Must "
@@ -174,20 +172,25 @@ where tag == iterKind.leader
       const masterLocale = here.locale;
 
       const potentialWorkerLocales =
-        [Locale in workerLocales] if numLocales == 1
-                                     || !coordinated
-                                     || Locale != masterLocale
-                                  then Locale;
-      const actualWorkerLocales = if potentialWorkerLocales.size > 0
+        [L in workerLocales] if numLocales == 1
+                                || !coordinated
+                                || L != masterLocale
+                             then L;
+      /*
+        It's not sensible to use a single locale besides masterLocale, so use
+        potentialWorkerLocales only if it's larger than one locale.
+      */
+      const actualWorkerLocales = if potentialWorkerLocales.size > 1
                                   then potentialWorkerLocales
                                   else [masterLocale];
       const numActualWorkerLocales = actualWorkerLocales.size;
 
+      // The guided iterator stage (determines next subrange index and size).
       var meitneriumIndex:atomic int;
 
       if infoDistributedIters then
       {
-        const actualWorkerLocaleIds = [e in actualWorkerLocales] e.id:string;
+        const actualWorkerLocaleIds = [L in actualWorkerLocales] L.id:string;
         const actualWorkerLocaleIdsSorted = actualWorkerLocaleIds.sorted();
         writeln("DistributedIters: guidedDistributed:");
         writeln("  coordinated = ", coordinated);
@@ -200,7 +203,7 @@ where tag == iterKind.leader
                 " ]");
       }
 
-      var localeTimes:[0..#numLocales]real = 0.0; // #numLocales is the safest.
+      var localeTimes:[0..#numLocales]real;
       var totalTime:Timer;
       if timeDistributedIters then totalTime.start();
 
@@ -224,16 +227,13 @@ where tag == iterKind.leader
           {
             const taskRange:cType = unDensify(denseTaskRangeTuple(1),
                                               localeRange);
-            if debugDistributedIters then
-            {
-              writeln("DistributedIters: Guided iterator (leader): ",
-                      here.locale, ": yielding ", unDensify(taskRange,c),
-                      " (", taskRange.length,
-                      "/", localeRange.length,
-                      " locale-owned of ", iterCount,
-                      " total) as ", taskRange);
-            }
-
+            if debugDistributedIters
+            then writeln("DistributedIters: Guided iterator (leader): ",
+                         here.locale, ": yielding ", unDensify(taskRange,c),
+                         " (", taskRange.length,
+                         "/", localeRange.length,
+                         " locale-owned of ", iterCount,
+                         " total) as ", taskRange);
             yield (taskRange,);
           }
 
@@ -369,7 +369,7 @@ proc writeTimeStatistics(wallTime:real,
                        then (numLocales - 1)
                        else numLocales;
   var localeMeanTime,localeStdDev,localeTotalTime:real;
-  var localeTimesFormatted:string = "";
+  var localeTimesFormatted:string;
 
   const localeRange:range = low..#nLocales;
   for i in localeRange do
@@ -383,8 +383,8 @@ proc writeTimeStatistics(wallTime:real,
   }
   localeMeanTime = (localeTotalTime / nLocales);
 
-  for i in localeRange do
-    localeStdDev += ((localeTimes[i] - localeMeanTime) ** 2);
+  for i in localeRange
+  do localeStdDev += ((localeTimes[i] - localeMeanTime) ** 2);
   localeStdDev = ((localeStdDev / nLocales) ** (1.0 / 2.0));
 
   writeln("DistributedIters: total time by locale: ", localeTimesFormatted);
