@@ -1,12 +1,12 @@
 /*
-  Test to check that the distributed() iterator from the DistributedIters
-  module accepts all valid inputs (ranges, domains, and arrays).
+  Test to check that the distributedGuided() iterator from the DistributedIters
+  module accepts all valid inputs (ranges and domains).
 */
 use BlockDist;
 use DistributedIters;
 
 // Common variables.
-config const n:int=10000;
+config const n:int=1000;
 var rng:range=0..n;
 var A:[rng] int=0;
 
@@ -20,29 +20,24 @@ var testStridedCountedRange=testStridedRange # 5;
 var testAlignedRange=testStridedRange align 1;
 
 writeln("Checking a range...");
-for i in distributed(testRange) do {
-  A[i] = A[i]+1;
-}
+for i in distributedGuided(testRange)
+do A[i] = A[i]+1;
 
 writeln("Checking a strided range...");
-for i in distributed(testStridedRange) do {
-  A[i] = A[i]+1;
-}
+for i in distributedGuided(testStridedRange)
+do A[i] = A[i]+1;
 
 writeln("Checking a counted range...");
-for i in distributed(testCountedRange) do {
-  A[i] = A[i]+1;
-}
+for i in distributedGuided(testCountedRange)
+do A[i] = A[i]+1;
 
 writeln("Checking a strided counted range...");
-for i in distributed(testStridedCountedRange) do {
-  A[i] = A[i]+1;
-}
+for i in distributedGuided(testStridedCountedRange)
+do A[i] = A[i]+1;
 
 writeln("Checking an aligned range...");
-for i in distributed(testAlignedRange) do {
-  A[i] = A[i]+1;
-}
+for i in distributedGuided(testAlignedRange)
+do A[i] = A[i]+1;
 
 /*
   Domains.
@@ -56,45 +51,23 @@ const testBlockDistributedDomain={1..n} dmapped
   Block(boundingBox={1..n});
 
 writeln("Checking an empty domain...");
-for i in distributed(testEmptyDomain) do {
-  A[i] = A[i]+1;
-}
+for i in distributedGuided(testEmptyDomain)
+do A[i] = A[i]+1;
 
 writeln("Checking a domain literal...");
-for i in distributed(testDomainLiteral) do {
-  A[i] = A[i]+1;
-}
+for i in distributedGuided(testDomainLiteral)
+do A[i] = A[i]+1;
 
 writeln("Checking an associative domain...");
-for i in distributed(testAssociativeDomain) do {
-  A[i] = A[i]+1;
-}
+for i in distributedGuided(testAssociativeDomain)
+do A[i] = A[i]+1;
 
 writeln("Checking a sparse domain...");
-for i in distributed(testSparseDomain) do {
-  A[i] = A[i]+1;
-}
+for i in distributedGuided(testSparseDomain)
+do A[i] = A[i]+1;
 
-writeln("Checking a block distributed domain...");
-for i in distributed(testBlockDistributedDomain) do {
-  A[i] = A[i]+1;
-}
+writeln("Checking a block-distributed domain...");
+for i in distributedGuided(testBlockDistributedDomain)
+do A[i] = A[i]+1;
 
-/*
-  Arrays.
-*/
-const testArrayDomain={1..n};
-var testArray:[testArrayDomain] int;
-const testArrayDistributedDomain={1..n} dmapped
-  Block(boundingBox={1..n});
-var testDistributedArray:[testArrayDistributedDomain] int;
-
-writeln("Checking an array...");
-for i in distributed(testArray) do {
-  A[i] = A[i]+1;
-}
-
-writeln("Checking a distributed array...");
-for i in distributed(testDistributedArray) do {
-  A[i] = A[i]+1;
-}
+// EOF
