@@ -20,6 +20,5 @@ record Point {
   var x, y:real;
 }
 var v:Point;
-for i in distributed(v) do {
-  A[i] = A[i]+1;
-}
+for i in distributedGuided(v)
+do A[i] = A[i]+1;

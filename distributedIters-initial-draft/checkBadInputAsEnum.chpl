@@ -18,6 +18,5 @@ var A:[rng] int=0;
 writeln("Checking an enum...");
 enum day {sat};
 var v:day=day.sat;
-for i in distributed(v) do {
-  A[i] = A[i]+1;
-}
+for i in distributedGuided(v)
+do A[i] = A[i]+1;

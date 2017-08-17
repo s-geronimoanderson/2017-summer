@@ -17,6 +17,5 @@ var A:[rng] int=0;
 */
 writeln("Checking an imag...");
 var v:imag;
-for i in distributed(v) do {
-  A[i] = A[i]+1;
-}
+for i in distributedGuided(v)
+do A[i] = A[i]+1;
