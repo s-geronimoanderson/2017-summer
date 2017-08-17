@@ -18,8 +18,8 @@
  */
 
  /*
-   This module contains iterators that can be used to distribute a `forall` loop
-   for a range, domain, or array.
+   This module contains iterators that can be used to distribute a `forall`
+   loop for a range or domain.
 
    Part of a 2017 Cray summer intern project by Sean I. Geronimo Anderson
    (sgeronimo@cray.com) as mentored by Ben Harshbarger (bharshbarg@cray.com).
@@ -32,6 +32,9 @@ use DynamicIters,
 // Toggle debugging output and per-locale performance timing.
 config param debugDistributedIters:bool = false;
 config param timeDistributedIters:bool = false;
+
+// Toggle writing system information.
+config const infoDistributedIters:bool = false;
 
 // Distributed Guided Iterator.
 /*
@@ -57,9 +60,9 @@ config param timeDistributedIters:bool = false;
     it from receiving work. (If true and multi-locale.)
   :type coordinated: `bool`
 
-  :arg desiredLocales: An array of locales over which to distribute the work.
+  :arg workerLocales: An array of locales over which to distribute the work.
     Defaults to Locales (all available locales).
-  :type desiredLocales: `[]locale`
+  :type workerLocales: `[]locale`
 
   :yields: Indices in the range ``c``.
 
@@ -82,14 +85,15 @@ iter distributedGuided(c,
                        parDim:int=1,
                        minChunkSize:int=1,
                        coordinated:bool=false,
-                       desiredLocales=Locales)
+                       workerLocales=Locales)
 {
-  assert((isDomain(c) || isRange(c)), "Must use a valid domain or range");
+  assert((isDomain(c) || isRange(c)), ("DistributedIters: Serial guided "
+                                       + "iterator: must use a valid domain "
+                                       + "or range"));
 
   if debugDistributedIters
-  then writeln("Serial guided iterator, working with ",
-               if isDomain(c) then "domain " else "range ", c);
-
+  then writeln("DistributedIters: Serial guided iterator, working with ",
+               (if isDomain(c) then "domain " else "range "), c);
   for i in c do yield i;
 }
 
@@ -101,16 +105,20 @@ iter distributedGuided(param tag:iterKind,
                        parDim:int=1,
                        minChunkSize:int=1,
                        coordinated:bool=false,
-                       desiredLocales=Locales)
+                       workerLocales=Locales)
 where tag == iterKind.leader
 {
-  assert((isDomain(c) || isRange(c)), "Must use a valid domain or range");
-
+  assert((isDomain(c) || isRange(c)), ("DistributedIters: Guided iterator "
+                                       + "(leader): must use a valid domain "
+                                       + "or range"));
   if isDomain(c) then
   {
-    assert(c.rank > 0, "Must use a valid domain");
-    assert(parDim > 0, "parDim must be a positive integer");
-    assert(parDim <= c.rank, "parDim must be a dimension of the domain");
+    assert(c.rank > 0, ("DistributedIters: Guided iterator (leader): Must "
+                        + "use a valid domain"));
+    assert(parDim > 0, ("DistributedIters: Guided iterator (leader): parDim "
+                        + "must be a positive integer"));
+    assert(parDim <= c.rank, ("DistributedIters: Guided iterator (leader): "
+                              + "parDim must be a dimension of the domain"));
 
     var parDimDim = c.dim(parDim);
 
@@ -120,7 +128,7 @@ where tag == iterKind.leader
                                parDim=1,
                                minChunkSize=minChunkSize,
                                coordinated=coordinated,
-                               desiredLocales=desiredLocales)
+                               workerLocales=workerLocales)
     {
       // Set the new range based on the tuple the guided 1-D iterator yields.
       var newRange = t(1);
@@ -142,7 +150,8 @@ where tag == iterKind.leader
   {
     const iterCount = c.length;
 
-    if iterCount == 0 then halt("The range is empty");
+    if iterCount == 0 then halt("DistributedIters: Guided iterator (leader): ",
+                                "the range is empty");
 
     type cType = c.type;
     const denseRange:cType = densify(c,c);
@@ -152,71 +161,92 @@ where tag == iterKind.leader
     then
     {
       if debugDistributedIters
-      then writeln("Distributed guided iterator: serial execution due to ",
-                   "insufficient work or compute resources");
+      then writeln("DistributedIters: Guided iterator (leader): serial ",
+                   "execution due to insufficient work or compute resources");
       yield (denseRange,);
     }
     else
     {
-      const numDesiredLocales = desiredLocales.size;
+      const numWorkerLocales = workerLocales.size;
       const denseRangeHigh:int = denseRange.high;
       const masterLocale = here.locale;
-      const nLocales = if coordinated && numDesiredLocales > 1
-                       then (numDesiredLocales - 1)
-                       else numDesiredLocales;
+
+      const potentialWorkerLocales =
+        [L in workerLocales] if numLocales == 1
+                                || !coordinated
+                                || L != masterLocale
+                             then L;
+      /*
+        It's not sensible to use a single locale besides masterLocale, so use
+        potentialWorkerLocales only if it's larger than one locale.
+      */
+      const actualWorkerLocales = if potentialWorkerLocales.size > 1
+                                  then potentialWorkerLocales
+                                  else [masterLocale];
+      const numActualWorkerLocales = actualWorkerLocales.size;
+
+      // The guided iterator stage (determines next subrange index and size).
       var meitneriumIndex:atomic int;
 
-      var localeTimes:[0..#numLocales]real = 0.0; // #numLocales is the safest.
+      if infoDistributedIters then
+      {
+        const actualWorkerLocaleIds = [L in actualWorkerLocales] L.id:string;
+        const actualWorkerLocaleIdsSorted = actualWorkerLocaleIds.sorted();
+        writeln("DistributedIters: guidedDistributed:");
+        writeln("  coordinated = ", coordinated);
+        writeln("  numLocales = ", numLocales);
+        writeln("  numWorkerLocales = ", numWorkerLocales);
+        writeln("  numActualWorkerLocales = ", numActualWorkerLocales);
+        writeln("  masterLocale.id = ", masterLocale.id);
+        writeln("  actualWorkerLocaleIds = [ ",
+                ", ".join(actualWorkerLocaleIdsSorted),
+                " ]");
+      }
+
+      var localeTimes:[0..#numLocales]real;
       var totalTime:Timer;
       if timeDistributedIters then totalTime.start();
 
-      coforall L in desiredLocales
+      coforall L in actualWorkerLocales
       with (ref meitneriumIndex, ref localeTimes) do
       on L do
       {
-        if numLocales == 1
-           || !coordinated
-           || L != masterLocale // Necessarily, coordinated == true
-        then
+        var localeTime:Timer;
+        if timeDistributedIters then localeTime.start();
+
+        var localeStage:int = meitneriumIndex.fetchAdd(1);
+        var localeRange:cType = guidedSubrange(denseRange,
+                                               numActualWorkerLocales,
+                                               localeStage);
+        while localeRange.high <= denseRangeHigh do
         {
-          var localeTime:Timer;
-          if timeDistributedIters then localeTime.start();
-
-          var localeStage:int = meitneriumIndex.fetchAdd(1);
-          var localeRange:cType = guidedSubrange(denseRange,
-                                                 nLocales,
-                                                 localeStage);
-          while localeRange.high <= denseRangeHigh do
+          const denseLocaleRange:cType = densify(localeRange, localeRange);
+          for denseTaskRangeTuple in DynamicIters.guided(tag=iterKind.leader,
+                                                         localeRange,
+                                                         numTasks) do
           {
-            const denseLocaleRange:cType = densify(localeRange, localeRange);
-            for denseTaskRangeTuple in DynamicIters.guided(tag=iterKind.leader,
-                                                           localeRange,
-                                                           numTasks) do
-            {
-              const taskRange:cType = unDensify(denseTaskRangeTuple(1),
-                                                localeRange);
-              if debugDistributedIters then
-              {
-                writeln("Distributed guided iterator (leader): ", here.locale,
-                        ": yielding ", unDensify(taskRange,c),
-                        " (", taskRange.length,
-                        "/", localeRange.length,
-                        " locale-owned of ", iterCount,
-                        " total) as ", taskRange);
-              }
-
-              yield (taskRange,);
-            }
-
-            localeStage = meitneriumIndex.fetchAdd(1);
-            localeRange = guidedSubrange(denseRange, nLocales, localeStage);
+            const taskRange:cType = unDensify(denseTaskRangeTuple(1),
+                                              localeRange);
+            if debugDistributedIters
+            then writeln("DistributedIters: Guided iterator (leader): ",
+                         here.locale, ": yielding ", unDensify(taskRange,c),
+                         " (", taskRange.length,
+                         "/", localeRange.length,
+                         " locale-owned of ", iterCount,
+                         " total) as ", taskRange);
+            yield (taskRange,);
           }
 
-          if timeDistributedIters then
-          {
-            localeTime.stop();
-            localeTimes[here.id] = localeTime.elapsed();
-          }
+          localeStage = meitneriumIndex.fetchAdd(1);
+          localeRange = guidedSubrange(denseRange,
+                                       numActualWorkerLocales,
+                                       localeStage);
+        }
+
+        if timeDistributedIters then
+        {
+          localeTime.stop();
+          localeTimes[here.id] = localeTime.elapsed();
         }
       }
 
@@ -237,11 +267,13 @@ iter distributedGuided(param tag:iterKind,
                        parDim:int=1,
                        minChunkSize:int,
                        coordinated:bool,
-                       desiredLocales=Locales,
+                       workerLocales=Locales,
                        followThis)
 where tag == iterKind.follower
 {
-  assert((isDomain(c) || isRange(c)), "Must use a valid domain or range");
+  assert((isDomain(c) || isRange(c)), ("DistributedIters: Guided iterator "
+                                       + "(follower): Must use a valid "
+                                       + "domain or range"));
 
   const current = if isDomain(c)
                   then c._value.these(tag=iterKind.follower,
@@ -249,8 +281,8 @@ where tag == iterKind.follower
                   else unDensify(followThis(1), c);
 
   if debugDistributedIters
-  then writeln("Distributed guided iterator (follower): ", here.locale, ": ",
-               "received ",
+  then writeln("DistributedIters: Guided iterator (follower): ", here.locale,
+               ": received ",
                if isDomain(c) then "domain " else "range ",
                followThis, " (", current.size,
                "/", c.size, "); shifting to ", current);
@@ -292,7 +324,8 @@ private proc guidedSubrange(c:range(?),
                             stage:int,
                             minChunkSize:int=1)
 {
-  assert(workerCount > 0, "'workerCount' must be positive");
+  assert(workerCount > 0, ("DistributedIters: guidedSubrange: "
+                           + "'workerCount' must be positive"));
   const cLength = c.length;
   var low:int = c.low;
   var chunkSize:int = (cLength / workerCount);
@@ -336,7 +369,7 @@ proc writeTimeStatistics(wallTime:real,
                        then (numLocales - 1)
                        else numLocales;
   var localeMeanTime,localeStdDev,localeTotalTime:real;
-  var localeTimesFormatted:string = "";
+  var localeTimesFormatted:string;
 
   const localeRange:range = low..#nLocales;
   for i in localeRange do
@@ -350,8 +383,8 @@ proc writeTimeStatistics(wallTime:real,
   }
   localeMeanTime = (localeTotalTime / nLocales);
 
-  for i in localeRange do
-    localeStdDev += ((localeTimes[i] - localeMeanTime) ** 2);
+  for i in localeRange
+  do localeStdDev += ((localeTimes[i] - localeMeanTime) ** 2);
   localeStdDev = ((localeStdDev / nLocales) ** (1.0 / 2.0));
 
   writeln("DistributedIters: total time by locale: ", localeTimesFormatted);
