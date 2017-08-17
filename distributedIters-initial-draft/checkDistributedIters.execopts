@@ -1,3 +1,1 @@
--nl 2 # checkDistributedIters-nl_2.good
--nl 4 # checkDistributedIters-nl_4.good
--nl 8 # checkDistributedIters-nl_8.good
+--infoDistributedIters -nl 1 # checkDistributedIters-nl_1.good
