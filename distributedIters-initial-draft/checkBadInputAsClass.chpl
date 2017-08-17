@@ -20,7 +20,6 @@ class Circle {
   var r:real;
 }
 var v = new Circle(r=2.0);
-for i in distributed(v) do {
-  A[i] = A[i]+1;
-}
+for i in distributedGuided(v)
+do A[i] = A[i]+1;
 delete v;

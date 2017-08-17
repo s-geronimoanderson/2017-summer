@@ -21,6 +21,5 @@ union U {
   var r:real;
 }
 var v:U;
-for i in distributed(v) do {
-  A[i] = A[i]+1;
-}
+for i in distributedGuided(v)
+do A[i] = A[i]+1;
