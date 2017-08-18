@@ -17,15 +17,16 @@
  * limitations under the License.
  */
 
- /*
-   This module contains iterators that can be used to distribute a `forall`
-   loop for a range or domain by dynamically splitting iterations between
-   locales.
+/*
+  This module contains iterators that can be used to distribute a `forall`
+  loop for a range or domain by dynamically splitting iterations between
+  locales.
 
-   Part of a 2017 Cray summer intern project by Sean I. Geronimo Anderson
-   (github.com/s-geronimoanderson) as mentored by Ben Harshbarger
-   (github.com/benharsh).
- */
+  ..
+    Part of a 2017 Cray summer intern project by Sean I. Geronimo Anderson
+    (github.com/s-geronimoanderson) as mentored by Ben Harshbarger
+    (github.com/benharsh).
+*/
 module DistributedIters
 {
 use DynamicIters,
@@ -37,7 +38,7 @@ use DynamicIters,
 config param debugDistributedIters:bool = false;
 
 /*
-  Toggle per-locale performance timing.
+  Toggle per-locale performance timing and output.
 */
 config param timeDistributedIters:bool = false;
 
