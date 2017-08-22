@@ -100,7 +100,6 @@ config const coordinated:bool = false;
 */
 config const n:int = 1000;
 
-pragma "no doc"
 const controlRange:range = 0..#n;
 const controlDomain:domain(1) = {controlRange};
 const globalRandomSeed:int = 13;
