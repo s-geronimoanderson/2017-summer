@@ -1,8 +1,9 @@
 /*
   Benchmarks for testing the DistributedIters module performance.
 
-  Part of a 2017 Cray summer intern project by Sean I. Geronimo Anderson
-  (sgeronimo@cray.com) as mentored by Ben Harshbarger (bharshbarg@cray.com).
+  ..
+    Part of a 2017 Cray summer intern project by Sean I. Geronimo Anderson
+    (sgeronimo@cray.com) as mentored by Ben Harshbarger (bharshbarg@cray.com).
 */
 use BlockDist,
     DistributedIters,
@@ -12,33 +13,63 @@ use BlockDist,
     Sort,
     Time;
 
-// If true, write out only the test time result (ideal for shell scripts).
+/*
+  If true, write out only the test time result (ideal for shell scripts).
+*/
 config const timing:bool = false;
-// Print debugging output.
+
+/*
+  Toggle debugging output.
+*/
 config const debug:bool = false;
 
 /*
   Benchmark mode (iterator):
 
-  default -- The block-distributed default iterator.
-  guided -- The distributed guided load-balancing iterator.
+  - ``default``
+    The block-distributed default iterator.
+
+  - ``guided``
+    The distributed guided load-balancing iterator.
 */
 enum iterator
 {
   default,
   guided
 };
+
+/*
+  Used to select the benchmark mode (which iterator to use). Defaults to
+  ``guided``. See :data:`iterator` for more information.
+*/
 config const mode:iterator = iterator.guided;
 
 /*
   Test cases for array values:
 
-  constant -- All array elements have the same constant value.
-  normal -- Normally distributed, scaled to [0,1].
-  outlier -- Most values close to average with handful of outliers.
-  rampup -- Values follow a linearly increasing function.
-  rampdown -- Values follow a linearly decreasing function.
-  uniform -- Uniformly random.
+  - ``constant``
+    All array elements have the same constant value.
+
+  - ``kryptonite``
+    Large values in the beginning and decreasing exponentially.
+
+  - ``normal``
+    Normally distributed, scaled to [0,1].
+
+  - ``outlier``
+    Most values close to average with handful of outliers.
+
+  - ``rampdown``
+    Values follow a linearly decreasing function.
+
+  - ``rampup``
+    Values follow a linearly increasing function.
+
+  - ``stacked``
+    Small values mostly but increasing exponentially near the end.
+
+  - ``uniform``
+    Uniformly random.
 */
 enum testCase
 {
@@ -51,59 +82,65 @@ enum testCase
   stacked,
   uniform
 };
+
+/*
+  Used to select test case. Defaults to ``uniform``. See :data:`testCase` for
+  more information.
+*/
 config const test:testCase = testCase.uniform;
 
 /*
-  If coordinated is true, then the guided iterator dedicates one locale to
-  distributing work to the remaining locales.
+  If ``coordinated`` is ``true``, then the guided iterator dedicates one locale
+  to distributing work to the remaining locales.
 */
 config const coordinated:bool = false;
 
-// n determines the iteration count and total work per iteration.
+/*
+  Used to determine the iteration count and total work per iteration.
+*/
 config const n:int = 1000;
 
 const controlRange:range = 0..#n;
 const controlDomain:domain(1) = {controlRange};
 const globalRandomSeed:int = 13;
+var timeResult:real;
 
 select mode
 {
-  when iterator.default do testControlWorkload();
-  when iterator.guided do testGuidedWorkload();
+  when iterator.default do timeResult = testControlWorkload();
+  when iterator.guided do timeResult = testGuidedWorkload();
+}
+
+if timing
+then writeln("%dr".format(timeResult));
+else
+{
+  writeln("test = ", test);
+  writeln("mode = ", mode);
+  writeln("n = ", n);
+  writeln("nl = ", numLocales);
+  writeln("Time = ", timeResult);
 }
 
 /*
   Testing procedures.
 */
+pragma "no doc"
 proc testGuidedWorkload()
 {
-  if !timing
-  then writeln("Using distributed guided iterator, running ", test,
-               " test case...");
   var timer:Timer;
 
   const replicatedDomain:domain(1) dmapped Replicated() = controlDomain;
   var array:[controlDomain]real;
   var replicatedArray:[replicatedDomain]real;
 
-  select test
-  {
-    when testCase.constant do fillConstant(array);
-    when testCase.kryptonite do fillKryptonite(array);
-    when testCase.normal do fillNormallyDistributed(array);
-    when testCase.outlier do fillCubicOutliers(array);
-    when testCase.rampdown do fillRampDown(array);
-    when testCase.rampup do fillRampUp(array);
-    when testCase.stacked do fillStacked(array);
-    when testCase.uniform do fillUniformlyRandom(array);
-  }
+  fillArray(array);
 
+  // Ensure all locales have the same array.
   coforall L in Locales
   do on L
   do for i in controlDomain
   do replicatedArray[i] = array[i];
-
-  if debug then writeArrayStatistics(array);
 
   timer.start();
   forall i in distributedGuided(controlRange, coordinated=coordinated) do
@@ -115,24 +152,42 @@ proc testGuidedWorkload()
   }
   timer.stop();
 
-  if timing
-  then writeln("%dr".format(timer.elapsed()));
-  else writeln("Total test time (", test,
-               ", n = ", n, ", nl = ", numLocales, "): ", timer.elapsed());
+  const timerElapsed:real = timer.elapsed();
   timer.clear();
+  return timerElapsed;
 }
 
-proc testControlWorkload()
+pragma "no doc"
+proc testControlWorkload():real
 {
-  if !timing
-  then writeln("Using default (control) iterator, running ", test,
-               " test case...");
-
   var timer:Timer;
 
   const D:domain(1) dmapped Block(boundingBox=controlDomain) = controlDomain;
   var array:[D]real;
 
+  fillArray(array);
+
+  timer.start();
+  forall i in D do
+  {
+    const k:real = (array[i] * n):int;
+
+    // Simulate work.
+    isPerfect(k:int);
+  }
+  timer.stop();
+
+  const timerElapsed:real = timer.elapsed();
+  timer.clear();
+  return timerElapsed;
+}
+
+/*
+  Array fills.
+*/
+pragma "no doc"
+proc fillArray(array)
+{
   select test
   {
     when testCase.constant do fillConstant(array);
@@ -146,33 +201,16 @@ proc testControlWorkload()
   }
 
   if debug then writeArrayStatistics(array);
-
-  timer.start();
-  forall i in D do
-  {
-    const k:real = (array[i] * n):int;
-
-    // Simulate work.
-    isPerfect(k:int);
-  }
-  timer.stop();
-
-  if timing
-  then writeln("%dr".format(timer.elapsed()));
-  else writeln("Total test time (", test,
-               ", n = ", n, ", nl = ", numLocales, "): ", timer.elapsed());
-  timer.clear();
 }
 
-/*
-  Array fills.
-*/
+pragma "no doc"
 proc fillConstant(array, constant=1)
 {
   const arrayDomain = array.domain;
   forall i in arrayDomain do array[i] = constant;
 }
 
+pragma "no doc"
 proc fillLinear(array, slope, yIntercept)
 {
   const arrayDomain = array.domain;
@@ -180,9 +218,13 @@ proc fillLinear(array, slope, yIntercept)
   normalizeSum(array);
 }
 
+pragma "no doc"
 proc fillRampDown(array) { fillLinear(array, (-1.0/n:real), 1.0); }
+
+pragma "no doc"
 proc fillRampUp(array) { fillLinear(array, (1.0/n:real), 0); }
 
+pragma "no doc"
 proc fillCubicOutliers(array)
 {
   const arrayDomain = array.domain;
@@ -228,6 +270,7 @@ proc fillCubicOutliers(array)
   almost all the work into the first work unit, using the same closed-form
   expression that the iterator uses for dividing work units.
 */
+pragma "no doc"
 proc fillKryptonite(array, desiredProcessorCount:int=0)
 {
   const processorCount:int = if desiredProcessorCount == 0
@@ -254,6 +297,7 @@ proc fillKryptonite(array, desiredProcessorCount:int=0)
   iterator's behavior by making the work per iteration approximately equal
   (work per iteration increases exponentially).
 */
+pragma "no doc"
 proc fillStacked(array, desiredProcessorCount:int=0)
 {
   const processorCount:int = if desiredProcessorCount == 0
@@ -275,6 +319,7 @@ proc fillStacked(array, desiredProcessorCount:int=0)
   normalizeSum(array);
 }
 
+pragma "no doc"
 proc fillNormallyDistributed(array)
 {
   const arrayDomain = array.domain;
@@ -302,6 +347,7 @@ proc fillNormallyDistributed(array)
   normalizeSum(array);
 }
 
+pragma "no doc"
 proc fillUniformlyRandom(array)
 {
   fillRandom(array, globalRandomSeed);
@@ -311,7 +357,7 @@ proc fillUniformlyRandom(array)
 /*
   Helpers.
 */
-proc normalizeSum(array, desiredSum=0)
+private proc normalizeSum(array, desiredSum=0)
 { // Make an array's sum equal its size by scaling all values appropriately.
   const arrayDomain = array.domain;
   const targetSum:int = if desiredSum == 0
@@ -324,7 +370,7 @@ proc normalizeSum(array, desiredSum=0)
   array *= scalingFactor;
 }
 
-proc properDivisors(n:int):domain(int)
+private proc properDivisors(n:int):domain(int)
 { // Return an associative domain of ``n``'s proper divisors.
   var result:domain(int)={1};
   var quotient:real;
@@ -337,7 +383,7 @@ proc properDivisors(n:int):domain(int)
   return result;
 }
 
-proc isPerfect(n:int):bool
+private proc isPerfect(n:int):bool
 { /*
     Return whether ``n`` is a perfect number (i.e. equals its proper divisor
     sum).
@@ -348,7 +394,7 @@ proc isPerfect(n:int):bool
   return sum == n;
 }
 
-proc max(array:[]):real
+private proc max(array:[]):real
 { // Return the maximum value in ``array``.
   var max:real;
   assert(array.size > 0, "max: array must have positive-size domain");
@@ -363,7 +409,7 @@ proc max(array:[]):real
   return max;
 }
 
-proc writeArrayStatistics(array:[]real)
+private proc writeArrayStatistics(array:[]real)
 { // Write ``array``'s min, max, mean, sum, standard deviation, and histogram.
   var max,mean,min,squaredDeviationSum,stdDev,sum:real;
   const arraySize:int = array.size;
