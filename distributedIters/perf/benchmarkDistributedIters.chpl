@@ -100,6 +100,7 @@ config const coordinated:bool = false;
 */
 config const n:int = 1000;
 
+pragma "no doc"
 const controlRange:range = 0..#n;
 const controlDomain:domain(1) = {controlRange};
 const globalRandomSeed:int = 13;
@@ -126,7 +127,7 @@ else
   Testing procedures.
 */
 pragma "no doc"
-proc testGuidedWorkload()
+private proc testGuidedWorkload()
 {
   var timer:Timer;
 
@@ -158,7 +159,7 @@ proc testGuidedWorkload()
 }
 
 pragma "no doc"
-proc testControlWorkload():real
+private proc testControlWorkload():real
 {
   var timer:Timer;
 
@@ -186,8 +187,8 @@ proc testControlWorkload():real
   Array fills.
 */
 pragma "no doc"
-proc fillArray(array)
-{
+private proc fillArray(array)
+{ // Call the appropriate array-filling function based on config const ``test``
   select test
   {
     when testCase.constant do fillConstant(array);
@@ -204,14 +205,14 @@ proc fillArray(array)
 }
 
 pragma "no doc"
-proc fillConstant(array, constant=1)
+private proc fillConstant(array, constant=1)
 {
   const arrayDomain = array.domain;
   forall i in arrayDomain do array[i] = constant;
 }
 
 pragma "no doc"
-proc fillLinear(array, slope, yIntercept)
+private proc fillLinear(array, slope, yIntercept)
 {
   const arrayDomain = array.domain;
   forall i in arrayDomain do array[i] = ((slope * i) + yIntercept);
@@ -219,13 +220,13 @@ proc fillLinear(array, slope, yIntercept)
 }
 
 pragma "no doc"
-proc fillRampDown(array) { fillLinear(array, (-1.0/n:real), 1.0); }
+private proc fillRampDown(array) { fillLinear(array, (-1.0/n:real), 1.0); }
 
 pragma "no doc"
-proc fillRampUp(array) { fillLinear(array, (1.0/n:real), 0); }
+private proc fillRampUp(array) { fillLinear(array, (1.0/n:real), 0); }
 
 pragma "no doc"
-proc fillCubicOutliers(array)
+private proc fillCubicOutliers(array)
 {
   const arrayDomain = array.domain;
   fillRandom(array, globalRandomSeed);
@@ -271,7 +272,7 @@ proc fillCubicOutliers(array)
   expression that the iterator uses for dividing work units.
 */
 pragma "no doc"
-proc fillKryptonite(array, desiredProcessorCount:int=0)
+private proc fillKryptonite(array, desiredProcessorCount:int=0)
 {
   const processorCount:int = if desiredProcessorCount == 0
                              then if dataParTasksPerLocale == 0
@@ -298,7 +299,7 @@ proc fillKryptonite(array, desiredProcessorCount:int=0)
   (work per iteration increases exponentially).
 */
 pragma "no doc"
-proc fillStacked(array, desiredProcessorCount:int=0)
+private proc fillStacked(array, desiredProcessorCount:int=0)
 {
   const processorCount:int = if desiredProcessorCount == 0
                              then if dataParTasksPerLocale == 0
@@ -320,7 +321,7 @@ proc fillStacked(array, desiredProcessorCount:int=0)
 }
 
 pragma "no doc"
-proc fillNormallyDistributed(array)
+private proc fillNormallyDistributed(array)
 {
   const arrayDomain = array.domain;
   fillRandom(array, globalRandomSeed);
@@ -348,7 +349,7 @@ proc fillNormallyDistributed(array)
 }
 
 pragma "no doc"
-proc fillUniformlyRandom(array)
+private proc fillUniformlyRandom(array)
 {
   fillRandom(array, globalRandomSeed);
   normalizeSum(array);
