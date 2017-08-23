@@ -365,7 +365,7 @@ private proc normalizeSum(array, desiredSum=0)
   var sum:real;
 
   for i in arrayDomain do sum += array[i];
-  const scalingFactor:real = (targetSum / sum);
+  const scalingFactor:real = (targetSum:real / sum);
   array *= scalingFactor;
 }
 
