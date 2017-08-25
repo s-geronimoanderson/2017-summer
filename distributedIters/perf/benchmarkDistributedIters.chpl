@@ -99,7 +99,7 @@ config const coordinated:bool = false;
 /*
   Dynamic-iterator--specific options.
 */
-config const localeChunkSize:int = 1;
+config const localeChunkSize:int = 0;
 config const chunkSize:int = 1;
 
 /*
