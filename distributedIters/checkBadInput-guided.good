@@ -1,2 +1,1 @@
-./DistributedIters.chpl:358: In iterator 'distributedGuided':
-./DistributedIters.chpl:372: error: cannot iterate over values of type void
+checkBadInput-guided.chpl:16: error: assert failed - DistributedIters: Guided iterator (serial): must use a valid domain or range

@@ -123,9 +123,10 @@ iter distributedDynamic(param tag:iterKind,
                         workerLocales=Locales)
 where tag == iterKind.leader
 {
-  assert(isDomain(c) || isRange(c),
-                 ("DistributedIters: Dynamic iterator (leader): must use a valid "
-                  + "domain or range"));
+  compilerAssert(isDomain(c) || isRange(c),
+                 ("DistributedIters: Dynamic iterator (serial): must use a "
+                  + "valid domain or range"),
+                 1);
   assert((chunkSize > 0 && localeChunkSize > 0),
          ("DistributedIters: Dynamic iterator (leader): "
           + "Chunk size must be a postive integer"));
@@ -288,11 +289,10 @@ iter distributedDynamic(param tag:iterKind,
                         followThis)
 where tag == iterKind.follower
 {
-  assert(isDomain(c) || isRange(c),
-                 ("DistributedIters: Dynamic iterator (follower): must use a "
+  compilerAssert(isDomain(c) || isRange(c),
+                 ("DistributedIters: Dynamic iterator (serial): must use a "
                   + "valid domain or range"),
                  1);
-
   const current = if isDomain(c)
                   then c._value.these(tag=iterKind.follower,
                                       followThis=followThis)
@@ -362,10 +362,10 @@ iter distributedGuided(c,
                        coordinated:bool=false,
                        workerLocales=Locales)
 {
-  assert((isDomain(c) || isRange(c)), ("DistributedIters: Guided iterator "
-                                       + "(serial): must use a valid domain "
-                                       + "or range"));
-
+  compilerAssert(isDomain(c) || isRange(c),
+                 ("DistributedIters: Guided iterator (serial): must use a "
+                  + "valid domain or range"),
+                 1);
   if debugDistributedIters
   then writeln("DistributedIters: Guided iterator (serial): working with ",
                (if isDomain(c) then "domain " else "range "), c);
@@ -383,9 +383,10 @@ iter distributedGuided(param tag:iterKind,
                        workerLocales=Locales)
 where tag == iterKind.leader
 {
-  assert((isDomain(c) || isRange(c)), ("DistributedIters: Guided iterator "
-                                       + "(leader): must use a valid domain "
-                                       + "or range"));
+  compilerAssert(isDomain(c) || isRange(c),
+                 ("DistributedIters: Guided iterator (leader): must use a "
+                  + "valid domain or range"),
+                 1);
   if isDomain(c) then
   {
     assert(c.rank > 0, ("DistributedIters: Guided iterator (leader): Must "
@@ -546,10 +547,10 @@ iter distributedGuided(param tag:iterKind,
                        followThis)
 where tag == iterKind.follower
 {
-  assert((isDomain(c) || isRange(c)), ("DistributedIters: Guided iterator "
-                                       + "(follower): Must use a valid "
-                                       + "domain or range"));
-
+  compilerAssert(isDomain(c) || isRange(c),
+                 ("DistributedIters: Guided iterator (follower): must use a "
+                  + "valid domain or range"),
+                 1);
   const current = if isDomain(c)
                   then c._value.these(tag=iterKind.follower,
                                       followThis=followThis)
