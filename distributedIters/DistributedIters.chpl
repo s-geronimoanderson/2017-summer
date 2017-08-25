@@ -290,11 +290,11 @@ where tag == iterKind.leader
 pragma "no doc"
 iter distributedDynamic(param tag:iterKind,
                         c,
-                        chunkSize:int=1,
-                        numTasks:int=0,
-                        parDim:int=1,
-                        localeChunkSize:int=1,
-                        coordinated:bool=false,
+                        chunkSize:int,
+                        numTasks:int,
+                        parDim:int,
+                        localeChunkSize:int,
+                        coordinated:bool,
                         workerLocales=Locales,
                         followThis)
 where tag == iterKind.follower
